@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.0.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.1.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -54,7 +54,8 @@ The same features on every deck; each screen is laid out for its panel (see the 
   to choose from, fixed, random or rotating with a crossfade), a big clock and the date, and if
   you want them the weather and glass cards with the PC, the song playing and your coins. Tap a
   card to open its page. While it is enabled it replaces auto sleep; the content drifts a few
-  pixels every minute against burn-in.
+  pixels every minute against burn-in. **Double-tap the status corner** (battery / LED, top right)
+  to start it at once.
 - **Settings** — Wi-Fi and pairing, the setup assistant, screen off and sleep, lock / restart /
   shut down the PC (restart and shut down only if allowed in DECKY Agent, always confirmed),
   brightness, language (Español / English), refresh rate, screensaver, place, °C / °F, 24 / 12 h,
@@ -100,7 +101,8 @@ Where the decks differ:
 
 The LED at the top right is **green while DECKY Agent is connected** and grey otherwise (amber with
 `DEMO` in demo mode). Tap it while it is grey to jump straight to the fix (Wi-Fi or pairing);
-*Settings* shows the details.
+*Settings* shows the details. Double-tap it (or the battery next to it) to start the screensaver
+right away, when it is enabled in *Settings › Screensaver*.
 
 **What the PC provides:** CPU / GPU / RAM, temperatures and power from LibreHardwareMonitor on
 Windows, hwmon / NVML / amdgpu on Linux, IOKit / SMC on macOS; now playing from the system media

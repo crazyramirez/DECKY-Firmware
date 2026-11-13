@@ -488,6 +488,59 @@ int main(int argc, char **argv) {
     ui::on_pc_presence();
     ui::navigate(ui::Page::Home);
   }
+  // ---- Status area (top right): a double tap starts the screensaver when it is enabled; a single tap
+  // does not, and with the LED grey it still leads to the fix once the double-tap window has passed.
+  {
+    auto &st = app::state();
+    const auto ss = st.settings.ss;
+    const auto link = st.link;
+    const int x = 461, y = 14;  // the status LED
+    bool bad = false;
+    ui::navigate(ui::Page::Home);
+    run(100);
+    st.settings.ss.enabled = true;
+    tap(x, y);
+    tap(x, y);
+    run(100);
+    if (!ui::screensaver::active()) {
+      printf("FAIL status: a double tap did not start the screensaver\n");
+      bad = true;
+    }
+    ui::screensaver::stop();
+    run(600);
+    tap(x, y);
+    run(600);
+    if (ui::screensaver::active()) {
+      printf("FAIL status: a single tap started the screensaver\n");
+      bad = true;
+      ui::screensaver::stop();
+    }
+    st.settings.ss.enabled = false;
+    tap(x, y);
+    tap(x, y);
+    run(600);
+    if (ui::screensaver::active()) {
+      printf("FAIL status: the screensaver is off but a double tap started it\n");
+      bad = true;
+      ui::screensaver::stop();
+    }
+    st.settings.ss.enabled = true;
+    st.link = app::LinkState::NoWifi;
+    ui::on_link();
+    run(100);
+    tap(x, y);
+    run(600);
+    if (ui::current_page() != ui::Page::Wifi) {
+      printf("FAIL status: a tap on the grey LED did not open Wi-Fi\n");
+      bad = true;
+    }
+    st.link = link;
+    st.settings.ss = ss;
+    ui::on_link();
+    ui::navigate(ui::Page::Home);
+    run(100);
+    printf("status double tap: %s\n", bad ? "FAIL" : "ok");
+  }
   ui::setup::open();  // Wi-Fi + PC already connected: starts at the city step
   shot("21_setup_city");
   net::g_status.wifi_connected = false;

@@ -15,6 +15,7 @@
 #include "app/app_controller.h"
 #include "app/state_store.h"
 #include "board/battery.h"
+#include "ui/status_tap.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
 
@@ -136,30 +137,28 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_flex_grow(s_sub, 1);
   lv_obj_set_height(s_sub, lv_font_get_line_height(font_small()));
 
-  // Right cluster: [deck power] [status pill].
-  s_deck_bat = make_label(bar, font_small(), kMuted, "");
+  // Right cluster, one tap target (status_tap.h): [deck power] [status pill]. A double tap starts the
+  // screensaver when it is enabled.
+  lv_obj_t *status = lv_obj_create(bar);
+  lv_obj_remove_style_all(status);
+  lv_obj_set_size(status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_column(status, 9, 0);  // as between the bar's own items
+  lv_obj_set_flex_flow(status, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(status, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_ext_click_area(status, 16);
+  s_deck_bat = make_label(status, font_small(), kMuted, "");
   lv_obj_add_flag(s_deck_bat, LV_OBJ_FLAG_HIDDEN);
 
   // Status LED: green while the PC app is connected, grey otherwise — no words, demo mode aside (amber
   // + DEMO, so synthetic data never passes as real). Settings shows the details (Wi-Fi, PC name).
   // Tapping it while grey goes straight to the fix: Wi-Fi setup or pairing.
-  s_pill = lv_obj_create(bar);
+  s_pill = lv_obj_create(status);
   lv_obj_remove_style_all(s_pill);
   lv_obj_set_size(s_pill, LV_SIZE_CONTENT, 30);
   lv_obj_set_style_pad_hor(s_pill, 4, 0);
   lv_obj_set_style_pad_column(s_pill, 6, 0);
   lv_obj_set_flex_flow(s_pill, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(s_pill, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_add_flag(s_pill, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_ext_click_area(s_pill, 16);
-  lv_obj_add_event_cb(
-      s_pill,
-      [](lv_event_t *) {
-        const auto l = app::state().link;
-        if (app::state().settings.demo_mode || l == app::LinkState::Online || l == app::LinkState::Stale) return;
-        navigate(l == app::LinkState::NoWifi ? Page::Wifi : Page::Pair);
-      },
-      LV_EVENT_CLICKED, nullptr);
   s_pill_dot = lv_obj_create(s_pill);
   lv_obj_remove_style_all(s_pill_dot);
   lv_obj_set_size(s_pill_dot, 14, 14);
@@ -173,6 +172,11 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_style_shadow_opa(s_pill_dot, LV_OPA_TRANSP, 0);
   s_pill_lbl = make_label(s_pill, font_tiny(), kPower, "");
   lv_obj_add_flag(s_pill_lbl, LV_OBJ_FLAG_HIDDEN);
+  attach_status_tap(status, [] {
+    const auto l = app::state().link;
+    if (app::state().settings.demo_mode || l == app::LinkState::Online || l == app::LinkState::Stale) return;
+    navigate(l == app::LinkState::NoWifi ? Page::Wifi : Page::Pair);
+  });
 }
 
 void build_nav(lv_obj_t *parent) {

@@ -6,6 +6,15 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.1.0 — Double-tap the status corner for the screensaver
+
+- **Screensaver on demand, on every deck:** a double tap on the status corner at the top right
+  (the deck's battery or charge bolt and the PC link LED) starts the screensaver at once, when it
+  is enabled in *Settings › Screensaver*. With the screensaver off nothing changes.
+- A single tap keeps its job: on the grey LED it still opens Wi-Fi setup or pairing (while the
+  screensaver is enabled, after a short pause to tell it from a double tap). The whole corner now
+  answers the tap, the LED itself included.
+
 ## firmware 1.0.0 — DECKY: one firmware for every deck
 
 - **New name: DECKY.** The deck says *DECKY* where it said *PC Control Deck* (the JC3248W535's top

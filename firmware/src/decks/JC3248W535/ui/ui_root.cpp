@@ -7,6 +7,7 @@
 #include "app/app_controller.h"
 #include "app/state_store.h"
 #include "board/battery.h"
+#include "ui/status_tap.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
 
@@ -85,7 +86,8 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_width(s_device_lbl, 150);
   lv_obj_align(s_device_lbl, LV_ALIGN_BOTTOM_LEFT, 0, -6);
 
-  // Right cluster: [deck battery] [status pill]; flex keeps them apart whatever the pill text.
+  // Right cluster: [deck battery] [status pill]; flex keeps them apart whatever the pill text. One tap
+  // target (status_tap.h): a double tap starts the screensaver when it is enabled.
   lv_obj_t *right = lv_obj_create(bar);
   lv_obj_remove_style_all(right);
   lv_obj_set_size(right, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -95,6 +97,7 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_style_pad_column(right, 8, 0);
   lv_obj_clear_flag(right, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_align(right, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_set_ext_click_area(right, 12);
   s_deck_bat = make_label(right, font_small(), kMuted, "");
   lv_obj_add_flag(s_deck_bat, LV_OBJ_FLAG_HIDDEN);
 
@@ -108,16 +111,6 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_style_pad_column(s_pill, 6, 0);
   lv_obj_set_flex_flow(s_pill, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(s_pill, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_add_flag(s_pill, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_ext_click_area(s_pill, 12);
-  lv_obj_add_event_cb(
-      s_pill,
-      [](lv_event_t *) {
-        const auto l = app::state().link;
-        if (app::state().settings.demo_mode || l == app::LinkState::Online || l == app::LinkState::Stale) return;
-        navigate(l == app::LinkState::NoWifi ? Page::Wifi : Page::Pair);
-      },
-      LV_EVENT_CLICKED, nullptr);
   s_pill_dot = lv_obj_create(s_pill);
   lv_obj_remove_style_all(s_pill_dot);
   lv_obj_set_size(s_pill_dot, 10, 10);
@@ -131,6 +124,11 @@ void build_top_bar(lv_obj_t *parent) {
   lv_obj_set_style_shadow_opa(s_pill_dot, LV_OPA_TRANSP, 0);
   s_pill_lbl = make_label(s_pill, &lv_font_montserrat_12, kPower, "");
   lv_obj_add_flag(s_pill_lbl, LV_OBJ_FLAG_HIDDEN);
+  attach_status_tap(right, [] {
+    const auto l = app::state().link;
+    if (app::state().settings.demo_mode || l == app::LinkState::Online || l == app::LinkState::Stale) return;
+    navigate(l == app::LinkState::NoWifi ? Page::Wifi : Page::Pair);
+  });
 }
 
 void build_banner(lv_obj_t *parent) {
