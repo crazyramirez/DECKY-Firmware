@@ -1,0 +1,42 @@
+[
+  {
+    "id": "aurora",
+    "name_es": "Aurora boreal",
+    "name_en": "Northern lights"
+  },
+  {
+    "id": "nebula",
+    "name_es": "Nebulosa",
+    "name_en": "Nebula"
+  },
+  {
+    "id": "silk",
+    "name_es": "Ondas de seda",
+    "name_en": "Silk waves"
+  },
+  {
+    "id": "marble",
+    "name_es": "Mármol negro",
+    "name_en": "Black marble"
+  },
+  {
+    "id": "city",
+    "name_es": "Ciudad nocturna",
+    "name_en": "City at night"
+  },
+  {
+    "id": "dunes",
+    "name_es": "Dunas lunares",
+    "name_en": "Moonlit dunes"
+  },
+  {
+    "id": "network",
+    "name_es": "Red blockchain",
+    "name_en": "Blockchain mesh"
+  },
+  {
+    "id": "ocean",
+    "name_es": "Océano azul",
+    "name_en": "Blue hour ocean"
+  }
+]

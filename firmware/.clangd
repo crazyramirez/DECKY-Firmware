@@ -1,0 +1,5 @@
+# clangd on Windows does not know the Xtensa GCC flags from compile_commands.json
+CompileFlags:
+  Remove: [-mlongcalls, -mdisable-hardware-atomics, -fstrict-volatile-bitfields, -fno-tree-switch-conversion, -fno-shrink-wrap, -mfix-esp32-psram-cache-issue]
+Diagnostics:
+  UnusedIncludes: None

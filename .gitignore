@@ -1,0 +1,34 @@
+# PlatformIO
+firmware/.pio/
+firmware/.vscode/.browse.c_cpp.db*
+firmware/.vscode/c_cpp_properties.json
+firmware/.vscode/launch.json
+firmware/.vscode/ipch
+
+# Local secrets / provisioning (never commit)
+firmware/include/secrets.h
+**/secrets.json
+*.pfx
+*.key
+
+# Flash backups (contain factory firmware + possibly user NVS data)
+backups/
+
+# Editors
+*.user
+.vs/
+
+# Node tooling
+node_modules/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# clangd
+firmware/compile_commands.json
+.cache/
+
+# Python tooling (firmware/tools, firmware/sim)
+**/__pycache__/
+.pytest_cache/

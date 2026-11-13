@@ -1,0 +1,169 @@
+# DECKY firmware for every supported deck, from one source tree (firmware/platformio.ini): one build
+# per product environment (JC1060P470C for ESP32-P4 v1.x, JC1060P470C_r3 for v3.x, JC4827W543,
+# JC3248W535), each giving firmware.bin + a merged flash-at-0x0 image. No hardware-test or
+# on-target-test builds: the release carries only the app .bin files.
+# Releases: a push to main whose PCD_FW_VERSION (firmware/src/core/app/version.h) has no GitHub
+# Release yet publishes one from the same run with every deck's files, creating the tag vX.Y.Z
+# (GITHUB_TOKEN: no second run). Its body is .github/release-notes.md (which file for which deck,
+# browser flashing) + the CHANGELOG section of that version. Bump the version, add its
+# "## firmware X.Y.Z" CHANGELOG section, push. Don't push tags by hand: that would build twice.
+# Storage: after the release step only the newest release, its tag and the current run are kept.
+name: firmware
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+      - ".github/scripts/**"
+      - ".github/release-notes.md"
+      - "docs/CHANGELOG.md"
+  pull_request:
+    paths: ["firmware/**", ".github/workflows/firmware.yml", ".github/scripts/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-${{ github.ref }}
+  # main runs queue instead of cancelling each other: one may be publishing a release.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout the desktop app (protocol fixtures)
+        uses: actions/checkout@v7
+        with:
+          repository: crazyramirez/DECKY-Agent
+          path: .pcdeck-agent
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Protocol fixtures in sync with DECKY-Agent
+        run: python firmware/tools/gen_fixtures.py --check --agent .pcdeck-agent
+
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: true
+      matrix:
+        env: [JC1060P470C, JC1060P470C_r3, JC4827W543, JC3248W535]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-${{ matrix.env }}-
+
+      - name: Install PlatformIO and esptool
+        run: pip install --disable-pip-version-check platformio==6.1.18 esptool==4.8.1
+
+      - name: Build ${{ matrix.env }}
+        run: pio run -d firmware -e ${{ matrix.env }}
+
+      - name: Firmware images (app + merged)
+        run: python .github/scripts/merge_firmware.py --project firmware --out dist ${{ matrix.env }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pcdeck-${{ matrix.env }}
+          path: dist/*.bin
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [checks, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Unreleased version?
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          FW=$(sed -n 's/^#define PCD_FW_VERSION "\(.*\)"/\1/p' firmware/src/core/app/version.h)
+          echo "version=$FW" >> "$GITHUB_OUTPUT"
+          echo "tag=v$FW" >> "$GITHUB_OUTPUT"
+          if gh release view "v$FW" > /dev/null 2>&1; then
+            echo "v$FW is already released: nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release notes (which file + flashing guide + CHANGELOG section)
+        if: steps.ver.outputs.publish == 'true'
+        run: |
+          python3 .github/scripts/release_notes.py --version "${{ steps.ver.outputs.version }}" \
+            --repo "$GITHUB_REPOSITORY" --tag "${{ steps.ver.outputs.tag }}" > notes.md
+          cat notes.md
+
+      - uses: actions/download-artifact@v8
+        if: steps.ver.outputs.publish == 'true'
+        with:
+          pattern: pcdeck-*
+          merge-multiple: true
+          path: assets
+
+      - name: Every deck's images are there
+        if: steps.ver.outputs.publish == 'true'
+        run: |
+          ls -l assets
+          for env in JC1060P470C JC1060P470C_r3 JC4827W543 JC3248W535; do
+            for f in "pcdeck-$env-${{ steps.ver.outputs.version }}.bin" "pcdeck-$env-${{ steps.ver.outputs.version }}-merged.bin"; do
+              test -s "assets/$f" || { echo "missing $f"; exit 1; }
+            done
+          done
+
+      - uses: softprops/action-gh-release@v3
+        if: steps.ver.outputs.publish == 'true'
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: DECKY firmware ${{ steps.ver.outputs.tag }}
+          body_path: notes.md
+          files: assets/*.bin
+
+      # GitHub storage: once this version's release exists, keep only it. Older releases go (with
+      # their tags), every earlier workflow run goes (its logs and artifacts with it), and this run's
+      # artifacts go too: the release holds the same .bin files.
+      - name: Keep only the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          gh release view "$TAG" --json tagName > /dev/null  # nothing is deleted without the current release
+          for t in $(gh release list --limit 1000 --json tagName -q '.[].tagName'); do
+            if [ "$t" != "$TAG" ]; then echo "delete release $t"; gh release delete "$t" --yes --cleanup-tag; fi
+          done
+          for t in $(gh api "repos/$GH_REPO/git/matching-refs/tags/v" -q '.[].ref | sub("refs/tags/"; "")'); do
+            if [ "$t" != "$TAG" ]; then echo "delete tag $t"; gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$t" --silent; fi
+          done
+          for id in $(gh api "repos/$GH_REPO/actions/runs?per_page=100" --paginate \
+                        -q ".workflow_runs[] | select(.id != $GITHUB_RUN_ID and .status == \"completed\") | .id"); do
+            echo "delete run $id"; gh api -X DELETE "repos/$GH_REPO/actions/runs/$id" --silent
+          done
+          for id in $(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts" -q '.artifacts[].id'); do
+            echo "delete artifact $id"; gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$id" --silent
+          done

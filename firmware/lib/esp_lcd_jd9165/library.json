@@ -1,0 +1,9 @@
+{
+  "name": "esp_lcd_jd9165",
+  "version": "1.0.0",
+  "description": "JD9165 MIPI-DSI LCD panel driver (Espressif, Apache-2.0) as used by the Guition JC1060P470C vendor demo",
+  "keywords": "lcd, jd9165, mipi-dsi, esp32-p4",
+  "license": "Apache-2.0",
+  "frameworks": ["arduino", "espidf"],
+  "platforms": "espressif32"
+}
