@@ -6,6 +6,22 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.2.1 — Smoother ESP32-4848S040; no page drawn under full-screen sheets
+
+- **Every deck:** while a full-screen sheet is open (Wi-Fi and its keyboard, place search, pairing,
+  the setup assistant, the screensaver) the page underneath is no longer drawn on every refresh:
+  LVGL 8 drew it although nothing of it showed. On the ESP32-4848S040 the Wi-Fi sheet with its
+  keyboard redraws in about half the time (~215 → ~115 ms for the whole screen).
+- **ESP32-4848S040, much lighter small changes:** every refresh copied the whole 480×480 frame to
+  the panel (~28 ms, twice with two changed areas) whatever had changed, because LVGL's direct mode
+  hands the whole display to the flush; now only what changed is copied (a key, a button, the clock:
+  well under 5 ms). The copy also starts at once when the scan is clear of those rows, or as soon as
+  it has passed them, instead of waiting for the next frame (up to 24 ms).
+- **ESP32-4848S040:** LVGL's drawing loops run from internal RAM (~10–15 % less per redraw). Console
+  `bench` times whole-screen redraws; `status` shows the last refresh (render, wait, copy).
+- **ESP32-4848S040:** a software restart (console `reboot`, a crash) no longer hangs a few seconds
+  until the watchdog resets the chip: the panel's DMA is stopped before restarting.
+
 ## firmware 1.2.0 — New deck: Guition ESP32-4848S040 (4" square)
 
 - **A fourth deck: the Guition ESP32-4848S040**, a 4" 480×480 square panel (the "86 box" format)

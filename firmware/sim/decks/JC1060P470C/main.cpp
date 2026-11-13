@@ -14,6 +14,7 @@
 #include "network/net_task.h"
 #include "storage/net_store.h"
 #include "ui/i18n.h"
+#include "ui/screen_cover.h"
 #include "ui/theme/theme.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
@@ -272,6 +273,7 @@ int main(int argc, char **argv) {
   g_drv.flush_cb = flush_cb;
   g_drv.draw_buf = &g_draw;
   g_drv.direct_mode = 1;
+  g_drv.render_start_cb = ui::skip_covered_screen;
   lv_disp_drv_register(&g_drv);
   lv_indev_drv_init(&g_indev);
   g_indev.type = LV_INDEV_TYPE_POINTER;

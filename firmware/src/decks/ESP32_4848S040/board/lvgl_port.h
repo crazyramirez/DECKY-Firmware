@@ -15,12 +15,17 @@ namespace lvgl_port {
 struct Stats {
   uint32_t frames = 0;        // refreshes presented to the panel
   uint32_t last_push_us = 0;  // copy + cache write-back time of the last refresh
+  uint32_t last_wait_us = 0;  // wait for the scan before that copy
+  uint32_t last_refr_ms = 0;  // whole refresh (render + wait + copy), LVGL monitor_cb
+  uint32_t last_refr_px = 0;
+  uint32_t max_refr_ms = 0;   // since reset_max_refr()
   uint32_t touch_presses = 0;
 };
 
 bool init();      // lcd + touch + LVGL drivers; backlight must be initialised separately
 void handle();    // call from loop(): runs lv_timer_handler()
 const Stats &stats();
+void reset_max_refr();
 bool touch_ok();  // touch controller ACKed at init
 const uint16_t *framebuffer();  // full 480x480 frame, little-endian RGB565 (read from the UI task only)
 

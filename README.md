@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.2.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.2.1** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -115,15 +115,15 @@ permissions: [DECKY Agent README](https://github.com/crazyramirez/DECKY-Agent).
 
 Each [release](https://github.com/crazyramirez/DECKY-Firmware/releases) carries the images of
 every deck; its notes ([`.github/release-notes.md`](.github/release-notes.md)) are the full guide.
-Take the files of **your** deck:
+Take the files of **your** deck (`X.Y.Z` is the release's version):
 
 | Deck | First install / recovery, at `0x0` | Update, at `0x10000` |
 |---|---|---|
-| JC1060P470C, ESP32-P4 **v1.x** (every board shipped so far) | `pcdeck-JC1060P470C-1.0.0-merged.bin` | `pcdeck-JC1060P470C-1.0.0.bin` |
-| JC1060P470C, ESP32-P4 **v3.x** | `pcdeck-JC1060P470C_r3-1.0.0-merged.bin` | `pcdeck-JC1060P470C_r3-1.0.0.bin` |
-| JC4827W543 | `pcdeck-JC4827W543-1.0.0-merged.bin` | `pcdeck-JC4827W543-1.0.0.bin` |
-| JC3248W535 | `pcdeck-JC3248W535-1.0.0-merged.bin` | `pcdeck-JC3248W535-1.0.0.bin` |
-| ESP32-4848S040 | `pcdeck-ESP32_4848S040-1.2.0-merged.bin` | `pcdeck-ESP32_4848S040-1.2.0.bin` |
+| JC1060P470C, ESP32-P4 **v1.x** (every board shipped so far) | `pcdeck-JC1060P470C-X.Y.Z-merged.bin` | `pcdeck-JC1060P470C-X.Y.Z.bin` |
+| JC1060P470C, ESP32-P4 **v3.x** | `pcdeck-JC1060P470C_r3-X.Y.Z-merged.bin` | `pcdeck-JC1060P470C_r3-X.Y.Z.bin` |
+| JC4827W543 | `pcdeck-JC4827W543-X.Y.Z-merged.bin` | `pcdeck-JC4827W543-X.Y.Z.bin` |
+| JC3248W535 | `pcdeck-JC3248W535-X.Y.Z-merged.bin` | `pcdeck-JC3248W535-X.Y.Z.bin` |
+| ESP32-4848S040 | `pcdeck-ESP32_4848S040-X.Y.Z-merged.bin` | `pcdeck-ESP32_4848S040-X.Y.Z.bin` |
 
 - The **merged** image (bootloader, partition table and app) goes at **`0x0`**: it erases Wi-Fi,
   pairing and settings, and the setup assistant opens. The **app-only** image goes at

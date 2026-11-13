@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "board/backlight.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "esp_attr.h"
@@ -10,6 +11,7 @@
 #include "esp_lcd_panel_rgb.h"
 #include "esp_log.h"
 #include "esp_rom_sys.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -21,7 +23,11 @@ const char *TAG = "lcd";
 esp_lcd_panel_handle_t s_panel = nullptr;
 uint16_t *s_fb = nullptr;
 uint32_t s_last_push_us = 0;
+uint32_t s_last_wait_us = 0;
+uint32_t s_last_bytes = 0;
+int s_last_n = 0;
 SemaphoreHandle_t s_vsync = nullptr;  // given by the LCD ISR at the end of every frame
+volatile uint32_t s_vsync_us = 0;     // when (esp_timer, low 32 bits)
 
 constexpr int kW = PCD_LCD_H_RES;
 constexpr int kBandRows = 16;  // copy + write back in bands: the panel sees each band right away
@@ -33,6 +39,14 @@ constexpr uint32_t kLineNs =
     static_cast<uint32_t>((PCD_LCD_H_RES + kHsyncPw + kHbp + kHfp) * 1000000000ULL / PCD_LCD_PCLK_HZ);  // ~45.7 us
 
 uint32_t line_us(int lines) { return static_cast<uint32_t>(static_cast<uint64_t>(lines) * kLineNs / 1000); }
+constexpr int kBlank = kVfp + kVsyncPw + kVbp;  // lines from the VSYNC interrupt to row 0
+constexpr int kMargin = 8;                       // lines of slack (~0.4 ms)
+
+// Row the scan is on (negative: vertical blanking, row 0 next); outside -kBlank..V_RES-1: unknown.
+int scan_row() {
+  const uint32_t us = static_cast<uint32_t>(esp_timer_get_time()) - s_vsync_us;
+  return static_cast<int>(static_cast<uint64_t>(us) * 1000 / kLineNs) - kBlank;
+}
 float s_bytes_per_us = 16.0f;  // measured copy speed (PSRAM to PSRAM, shared with the scan)
 
 void wait_until(int64_t t_us) {
@@ -42,10 +56,20 @@ void wait_until(int64_t t_us) {
   }
 }
 
+// Not an IRAM-safe ISR (CONFIG_LCD_RGB_ISR_IRAM_SAFE is off): it never runs with the cache off.
 IRAM_ATTR bool on_vsync(esp_lcd_panel_handle_t, const esp_lcd_rgb_panel_event_data_t *, void *) {
+  s_vsync_us = static_cast<uint32_t>(esp_timer_get_time());
   BaseType_t woken = pdFALSE;
   xSemaphoreGiveFromISR(s_vsync, &woken);
   return woken == pdTRUE;
+}
+
+// A software restart must not find the LCD DMA still reading PSRAM: the ROM then hung until the RTC
+// watchdog reset the chip. Backlight off first (the panel shows noise once it stops being fed).
+void on_shutdown() {
+  backlight::set(0);
+  if (s_panel) esp_lcd_panel_del(s_panel);
+  s_panel = nullptr;
 }
 
 void write_back(int y_first, int y_last) {
@@ -203,6 +227,7 @@ esp_err_t init() {
   esp_lcd_rgb_panel_event_callbacks_t cbs = {};
   cbs.on_vsync = on_vsync;
   if (s_vsync) esp_lcd_rgb_panel_register_event_callbacks(s_panel, &cbs, nullptr);
+  esp_register_shutdown_handler(on_shutdown);
   ESP_LOGI(TAG, "ST7701S %dx%d ready: RGB565 16-bit, PCLK %u Hz, frame buffer %p (PSRAM)", PCD_LCD_H_RES,
            PCD_LCD_V_RES, static_cast<unsigned>(PCD_LCD_PCLK_HZ), fb);
   return ESP_OK;
@@ -224,17 +249,39 @@ void present(const uint16_t *src, Rect *rects, int n) {
     bytes += static_cast<size_t>(rects[i].x2 - rects[i].x1 + 1) * (rects[i].y2 - rects[i].y1 + 1) * 2;
     if (rects[i].y2 > bottom) bottom = rects[i].y2;
   }
-  // Never let the scan cross the copy (that would show half of an area for one frame, a tear):
-  //  - fast copy: start at the end of a frame; it stays ahead of the next scan;
-  //  - slow copy (big areas: slower than the scan): start once the scan has passed the top row, so
-  //    the scan stays ahead and shows the whole change on the next frame.
-  if (s_vsync) {
-    xSemaphoreTake(s_vsync, 0);
-    xSemaphoreTake(s_vsync, pdMS_TO_TICKS(50));
+  // Never let the scan cross the copy (that would show half of an area for one frame, a tear). Start
+  // at once when the scan is clear of these rows for the whole copy:
+  //  - above them, and the copy reaches the bottom row before the scan does;
+  //  - below them, and the copy is done before the next frame's scan comes back to the top row.
+  // Otherwise from the end of a frame (VSYNC):
+  //  - fast copy: at once; it stays ahead of the next scan;
+  //  - slow copy (big areas: slower than the scan): once the scan has passed the top row, so the
+  //    scan stays ahead and shows the whole change on the next frame.
+  const int64_t t_wait = esp_timer_get_time();
+  const uint32_t est_us = static_cast<uint32_t>(bytes / s_bytes_per_us) + line_us(kMargin);
+  const int row = scan_row();
+  bool now = false;
+  if (row >= -kBlank && row < PCD_LCD_V_RES) {
+    if (row + kMargin < top) {
+      now = est_us < line_us(bottom - row);
+    } else if (row > bottom + kMargin) {
+      now = est_us < line_us(PCD_LCD_V_RES - row + kBlank + top);
+    } else if (est_us < line_us(PCD_LCD_V_RES - (bottom + kMargin) + kBlank + top)) {
+      // The scan is on these rows: wait until it has passed them (a few lines for a small change)
+      // instead of a whole frame; the copy is then done before it comes back.
+      wait_until(t_wait + line_us(bottom + kMargin + 1 - row));
+      now = true;
+    }
   }
-  const int64_t t_frame = esp_timer_get_time();
-  const uint32_t est_us = static_cast<uint32_t>(bytes / s_bytes_per_us);
-  if (est_us >= line_us(kVbp + bottom)) wait_until(t_frame + line_us(kVfp + kVsyncPw + kVbp + top + 2));
+  if (!now) {
+    if (s_vsync) {
+      xSemaphoreTake(s_vsync, 0);
+      xSemaphoreTake(s_vsync, pdMS_TO_TICKS(50));
+    }
+    const int64_t t_frame = esp_timer_get_time();
+    if (est_us >= line_us(kVbp + bottom)) wait_until(t_frame + line_us(kBlank + top + 2));
+  }
+  s_last_wait_us = static_cast<uint32_t>(esp_timer_get_time() - t_wait);
   const uint32_t t0 = micros();
   for (int i = 0; i < n; i++) {
     const Rect &r = rects[i];
@@ -252,6 +299,8 @@ void present(const uint16_t *src, Rect *rects, int n) {
   const uint32_t took = micros() - t0;
   if (bytes >= 64 * 1024 && took > 0) s_bytes_per_us = 0.75f * s_bytes_per_us + 0.25f * bytes / took;
   s_last_push_us = took;
+  s_last_bytes = static_cast<uint32_t>(bytes);
+  s_last_n = n;
 }
 
 void fill(uint16_t color) {
@@ -261,5 +310,8 @@ void fill(uint16_t color) {
 }
 
 uint32_t last_push_us() { return s_last_push_us; }
+uint32_t last_wait_us() { return s_last_wait_us; }
+uint32_t last_bytes() { return s_last_bytes; }
+int last_rects() { return s_last_n; }
 
 }  // namespace lcd

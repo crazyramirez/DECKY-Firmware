@@ -10,7 +10,9 @@
  *  - Pixels: the S3's LCD_CAM RGB peripheral scans one 480x480 RGB565 frame buffer in PSRAM
  *    continuously (DMA, ~43 Hz at 12 MHz PCLK). Whatever reaches that buffer appears on the next
  *    scan, so nothing is drawn there directly: present() copies finished areas into it, timed off
- *    VSYNC so the scan never crosses the copy (no tearing), and writes the cache back band by band.
+ *    the scan position (last VSYNC) so the scan never crosses the copy (no tearing), and writes the
+ *    cache back band by band. The copy is the CPU's: a DMA copy competes with the panel's DMA for
+ *    PSRAM and starves it (the picture flashes).
  *    The driver's own double buffering can't be used: with CONFIG_LCD_RGB_RESTART_IN_VSYNC (set in
  *    the Arduino libraries) the S3 restarts the DMA from frame buffer 0 on every frame.
  */
@@ -27,5 +29,8 @@ uint16_t *framebuffer();  // the scanned 480x480 little-endian RGB565 frame, in 
 void present(const uint16_t *src, Rect *rects, int n);
 void fill(uint16_t color);  // whole frame, synced (boot only)
 uint32_t last_push_us();    // copy + cache write-back time of the last present()
+uint32_t last_bytes();  // bytes copied by the last present()
+int last_rects();
+uint32_t last_wait_us();    // time the last present() waited for the scan
 
 }  // namespace lcd

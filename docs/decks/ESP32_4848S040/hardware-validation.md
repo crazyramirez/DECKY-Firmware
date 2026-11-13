@@ -26,6 +26,8 @@ backed up first (`backups/`, not in git).
 | Colours, orientation, no drift | ✅ confirmed by eye: the setup wizard's colours, upright | setup wizard |
 | Drawing straight into the scanned frame buffer | ❌ flashes on every key press (LVGL draws an area in layers): LVGL now draws into its own frame, copied at VSYNC: ✅ no flashes | user report |
 | Backlight PWM | ❌ at 5 kHz the screen goes black below ~50 %; 150 Hz (ESPHome's setting for this board): ✅ dims smoothly | user report |
+| Copy to the panel by DMA (GDMA) | ❌ flashes: it competes with the panel's DMA for PSRAM; the copy stays the CPU's | user report |
+| Software restart | ❌ hung in the ROM until the RTC watchdog (panel DMA still reading PSRAM); ✅ 5/5 clean once the panel is stopped first | console `reboot` |
 
 ## 3. Touch
 

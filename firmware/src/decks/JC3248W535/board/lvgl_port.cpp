@@ -5,6 +5,7 @@
 
 #include "board_pins.h"
 #include "esp_heap_caps.h"
+#include "ui/screen_cover.h"
 #include "lcd_axs15231b.h"
 #include "touch_axs15231b.h"
 
@@ -92,6 +93,7 @@ bool init() {
   s_disp_drv.flush_cb = flush_cb;
   s_disp_drv.draw_buf = &s_draw_buf;
   s_disp_drv.direct_mode = 1;
+  s_disp_drv.render_start_cb = ui::skip_covered_screen;  // no page drawn under full-screen sheets
   lv_disp_drv_register(&s_disp_drv);
 
   lv_indev_drv_init(&s_indev_drv);
