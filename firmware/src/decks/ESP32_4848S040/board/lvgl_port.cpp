@@ -138,6 +138,7 @@ void set_screen_off(bool off) {
   if (!off) {
     lv_disp_trig_activity(nullptr);  // waking counts as activity (auto sleep)
     lv_obj_invalidate(lv_scr_act());
+    lv_obj_invalidate(lv_layer_top());  // the screen is skipped under a full-screen sheet
   }
 }
 bool screen_off() { return s_screen_off; }

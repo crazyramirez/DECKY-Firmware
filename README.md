@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.2.1** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.2.2** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks

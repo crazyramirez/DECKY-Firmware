@@ -28,7 +28,9 @@ SDA 8 / SCL 4 / INT 3 / RST 38 and the backlight on GPIO1. The factory binary he
    SPI mode 0, INVON after the table (IPS). Switches: `PCD_LCD_SPLIT_PARAMS` (0 = parameters in one
    0x02 transaction), `PCD_LCD_PARTIAL_ROWS` (1 = push only the dirty row band).
 3. **Whole-frame pushes by default.** The vendor demos only ever flush whole frames
-   (`Arduino_Canvas`); partial windows are unproven on this panel. 480×272×2 = 255 KiB ≈ 16 ms at
+   (`Arduino_Canvas`); partial windows are unproven on this panel. *Tried in 1.2.2 with the real dirty
+   rows (LVGL's invalid areas: in direct mode the flush itself always names the whole display): the
+   panel flashes and flickers with partial windows, so whole frames stay.* 480×272×2 = 255 KiB ≈ 16 ms at
    32 MHz QSPI, through two 15 KiB internal DMA bounce buffers (frame in PSRAM, LVGL direct mode).
 4. **GT911** polled (status 0x814E, first point 0x814F, status cleared after each read). The reset
    drives INT low while RST rises (address 0x5D); 0x14 is probed as a fallback. Coordinates are

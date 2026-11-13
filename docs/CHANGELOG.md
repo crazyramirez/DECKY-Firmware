@@ -6,6 +6,17 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.2.2 — No more random restarts after boot
+
+- **Every deck: a restart a few seconds after power-on is gone.** The first web request (weather,
+  crypto) could meet the clock's own time-server lookup: Arduino's name lookup cleared the network
+  stack's DNS cache without its lock and the deck stopped with a panic (`assert failed:
+  udp_new_ip_type ... Required to lock TCPIP core functionality`, read from the core dump). Every
+  new Wi-Fi connection now resolves one name first, with the time sync paused.
+- **Every deck:** when the screen comes back on with a full-screen sheet open (the screensaver, a
+  settings sheet), the whole screen is redrawn; before, the panel could keep the picture it had
+  when it went off.
+
 ## firmware 1.2.1 — Smoother ESP32-4848S040; no page drawn under full-screen sheets
 
 - **Every deck:** while a full-screen sheet is open (Wi-Fi and its keyboard, place search, pairing,

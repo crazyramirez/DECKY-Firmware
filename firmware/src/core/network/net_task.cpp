@@ -14,9 +14,11 @@
 #include "crypto/coin_catalog.h"
 #include "crypto/crypto_store.h"
 #include "esp_heap_caps.h"
+#include "esp_sntp.h"
 #include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "lwip/tcpip.h"
 #include "network/protocol_parser.h"
 #include "network/web_source.h"
 #include "storage/net_store.h"
@@ -129,6 +131,23 @@ uint32_t s_web_post_at = 0;
 constexpr uint32_t kWebWeatherRetryMs = 60 * 1000;
 void fail_crypto(const char *error);
 bool s_sntp_started = false;
+bool s_dns_settled = false;  // settle_dns() ran on this connection
+
+// Arduino's NetworkManager::hostByName() (every HTTPS request resolves through it) clears lwIP's DNS
+// cache the first time it runs after the IP state changed, without taking the lwIP core lock. If
+// SNTP is waiting on its own DNS query right then, SNTP's callback runs in our task, asks the next
+// server, and lwIP asserts "Required to lock TCPIP core functionality" (a panic: seen a few seconds
+// after boot, a weather request meeting SNTP's first lookup). So on every new connection one name is
+// resolved here first, with SNTP stopped: later lookups have no state change left to clear for.
+void settle_dns() {
+  LOCK_TCPIP_CORE();
+  const bool sntp_on = esp_sntp_enabled();
+  if (sntp_on) esp_sntp_stop();
+  UNLOCK_TCPIP_CORE();
+  IPAddress addr;
+  WiFi.hostByName("pool.ntp.org", addr);
+  if (sntp_on) configTime(0, 0, "pool.ntp.org", "time.google.com");  // restarts it, under the lock
+}
 app::LinkState s_reported = app::LinkState::Booting;
 char s_client_id[24] = "";
 char s_device_name[24] = "";
@@ -1019,6 +1038,7 @@ void step() {
       s.wifi_connected = false;
       s.ws_connected = false;
     });
+    s_dns_settled = false;
     post_link(app::LinkState::NoWifi);
     if (!s_wifi_begun || millis() - s_wifi_begin_ms > kWifiRetryMs) {
       if (!s_wifi_begun && s_attempt_start_ms == 0) s_attempt_start_ms = millis() | 1;
@@ -1047,6 +1067,10 @@ void step() {
     memcpy(s.ip, ip, sizeof(s.ip));
   });
 
+  if (!s_dns_settled) {
+    s_dns_settled = true;
+    settle_dns();
+  }
   if (!s_sntp_started) {
     s_sntp_started = true;
     configTime(0, 0, "pool.ntp.org", "time.google.com");  // UTC; the UI applies the offset

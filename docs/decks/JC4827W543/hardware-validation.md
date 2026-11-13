@@ -50,7 +50,7 @@ The JC3248W535 bring-up record (AXS15231B, firmware ≤ 0.7.0) is in [its own pa
 | Frame time | log `push … us` ≈ 16 ms at 32 MHz | — |
 | GT911 found | log `GT911 '911' at 0x5D, configured 480x272` | address 0x14 is probed too |
 | Touch mapping | the four red corners turn green where touched | `PCD_TOUCH_SWAP_XY` / `MIRROR_X` / `MIRROR_Y` |
-| Partial row pushes (optional) | `-DPCD_LCD_PARTIAL_ROWS=1`: no artefacts while the clock / spinner update | keep 0 (default) |
+| Partial row pushes | ❌ `-DPCD_LCD_PARTIAL_ROWS=1` (1.2.2 candidate, real dirty rows): flashes and flicker on the panel | keep 0 (default): whole frames |
 | Sleep button | serial `status`: idle levels, taps; deep sleep log shows the ext1/ext0 choice | momentary mode on the module |
 | Wake from deep sleep | button tap, touch, BOOT | log `woke from deep sleep (button\|touch\|boot)` |
 | BOOT / TE on GPIO0 | BOOT turns a dark screen on; no spurious wake-ups with the screen off | — |

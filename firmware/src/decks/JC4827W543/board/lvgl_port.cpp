@@ -25,31 +25,38 @@ bool s_screen_off = false;
 bool s_swallow = false;  // finger that woke the screen is still down
 void (*s_on_wake)() = nullptr;
 lv_point_t s_last_point = {0, 0};
-int s_dirty_y0 = PCD_LCD_V_RES, s_dirty_y1 = -1;  // rows touched by the current refresh
 
 #ifndef PCD_LCD_PARTIAL_ROWS
-#define PCD_LCD_PARTIAL_ROWS 0  // 1: push only the dirty row band (needs RASET; vendor demos push full frames)
+// 1: push only the band of rows that changed. Tried on the board (1.2.2 candidate): the panel
+// flashes and flickers with partial windows, so whole frames, like the vendor demos.
+#define PCD_LCD_PARTIAL_ROWS 0
 #endif
 
 void log_cb(const char *buf) { Serial.print(buf); }
 
-void flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *) {
-  if (area->y1 < s_dirty_y0) s_dirty_y0 = area->y1;
-  if (area->y2 > s_dirty_y1) s_dirty_y1 = area->y2;
-  if (lv_disp_flush_is_last(drv)) {
-    if (!s_screen_off) {
+// Direct mode: LVGL passes the whole display to every flush, not what it redrew; that is the
+// refresh's invalid areas. Only the band of rows they span is pushed (a key press: a few rows instead
+// of the 21 ms frame).
+void flush_cb(lv_disp_drv_t *drv, const lv_area_t *, lv_color_t *) {
+  if (lv_disp_flush_is_last(drv) && !s_screen_off) {
+    int y0 = 0, y1 = PCD_LCD_V_RES - 1;
 #if PCD_LCD_PARTIAL_ROWS
-      const esp_err_t err = lcd::push_rows(s_fb, s_dirty_y0, s_dirty_y1);
-#else
-      const esp_err_t err = lcd::push_frame(s_fb);
-#endif
-      if (err == ESP_OK) {
-        s_stats.frames++;
-        s_stats.last_push_us = lcd::last_push_us();
-      }
+    const lv_disp_t *disp = _lv_refr_get_disp_refreshing();
+    int top = PCD_LCD_V_RES, bottom = -1;
+    for (int i = 0; disp && i < disp->inv_p; i++) {
+      if (disp->inv_area_joined[i]) continue;
+      if (disp->inv_areas[i].y1 < top) top = disp->inv_areas[i].y1;
+      if (disp->inv_areas[i].y2 > bottom) bottom = disp->inv_areas[i].y2;
     }
-    s_dirty_y0 = PCD_LCD_V_RES;
-    s_dirty_y1 = -1;
+    if (bottom >= top) {
+      y0 = top < 0 ? 0 : top;
+      y1 = bottom >= PCD_LCD_V_RES ? PCD_LCD_V_RES - 1 : bottom;
+    }
+#endif
+    if (lcd::push_rows(s_fb, y0, y1) == ESP_OK) {
+      s_stats.frames++;
+      s_stats.last_push_us = lcd::last_push_us();
+    }
   }
   lv_disp_flush_ready(drv);
 }
@@ -133,6 +140,7 @@ void set_screen_off(bool off) {
   if (!off) {
     lv_disp_trig_activity(nullptr);  // waking counts as activity (auto sleep)
     lv_obj_invalidate(lv_scr_act());  // push a fresh frame right away
+    lv_obj_invalidate(lv_layer_top());  // the screen is skipped under a full-screen sheet
   }
 }
 bool screen_off() { return s_screen_off; }
