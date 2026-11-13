@@ -3,9 +3,9 @@
 Legend: ✅ verified on the real board · 🖥️ verified by tool/log/build only · 📄 from vendor sources or
 the JC1060P470C CryptoTracker (same board, same platform) · ⏳ pending physical check · ❌ failed
 
-The JC4827W543 and JC3248W535 bring-up records are in their repositories
-([JC4827W543](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC4827W543/blob/main/docs/HARDWARE_VALIDATION.md),
-[JC3248W535](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC3248W535)).
+The JC4827W543 and JC3248W535 bring-up records:
+[JC4827W543](../JC4827W543/hardware-validation.md),
+[JC3248W535](../JC3248W535/hardware-validation.md).
 
 ## 1. Board identity
 

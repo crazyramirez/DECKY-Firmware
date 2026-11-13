@@ -3,7 +3,7 @@
 Legend: ✅ verified on the real board · 🖥️ verified by tool/log/build only · 📄 from vendor sources ·
 ⏳ pending physical check · ❌ failed
 
-The JC3248W535 bring-up record (AXS15231B, firmware ≤ 0.7.0) is in [that repository](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC3248W535).
+The JC3248W535 bring-up record (AXS15231B, firmware ≤ 0.7.0) is in [its own page](../JC3248W535/hardware-validation.md).
 
 ## 1. Board identity
 

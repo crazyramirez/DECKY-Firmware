@@ -175,7 +175,7 @@ Ported from the JC1060P470C deck (0.11.1 and 0.11.4).
 
 **New board: Guition JC4827W543** (4.3" 480×272 IPS, NV3041A over QSPI, GT911 touch, ESP32-S3 N4R8).
 This repository targets that board only; the JC3248W535 version (firmware 0.7.0) lives in
-[its own repository](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC3248W535).
+its own repository ([its history](../JC3248W535/changelog-0.x.md)).
 
 - Board layer: own NV3041A QSPI driver (vendor Arduino_GFX init table and framing, manual CS,
   ping-pong DMA bounce buffers, whole-frame pushes like the vendor demos), GT911 driver (reset with

@@ -18,7 +18,8 @@ SDA 8 / SCL 4 / INT 3 / RST 38 and the backlight on GPIO1. The factory binary he
 ## Decisions
 
 1. **One board per repository.** The UI is redesigned for landscape; keeping both layouts would
-   double every screen. The JC3248W535 version (firmware 0.7.0) stays in [its own repository](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC3248W535).
+   double every screen. The JC3248W535 version (firmware 0.7.0) stays in its own repository (merged back in firmware
+   1.0: [ADR 0008](0008-one-firmware-repository.md)).
 2. **Own NV3041A driver on `spi_master`**, mirroring the vendor-verified Arduino_GFX framing
    exactly: 0x02 + `cmd << 8` for commands with one parameter byte; CASET/RASET parameters "split"
    (command alone, then one 0x32 / 0x003C00 transaction per byte, as `Arduino_NV3041A` does);

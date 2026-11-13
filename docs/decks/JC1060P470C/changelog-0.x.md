@@ -5,7 +5,7 @@ the last separate release. From 1.0.0 every deck is built from this repository: 
 
 
 This repository targets the **Guition JC1060P470C** from firmware 0.10.0. It was ported from the
-[JC4827W543 edition](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC4827W543) (firmware
+[JC4827W543 edition](../JC4827W543/changelog-0.x.md) (firmware
 0.9.0); the entries below 0.10.0 are that history.
 
 ## firmware 0.13.0 — Today: a background that follows the weather
@@ -240,7 +240,7 @@ Same features, protocol and PC app as the JC4827W543 deck. Details: [ADR 0005](a
 
 **New board: Guition JC4827W543** (4.3" 480×272 IPS, NV3041A over QSPI, GT911 touch, ESP32-S3 N4R8).
 This repository targets that board only; the JC3248W535 version (firmware 0.7.0) lives in
-[its own repository](https://github.com/crazyramirez/PC-Control-Deck-ESP32-JC3248W535).
+its own repository ([its history](../JC3248W535/changelog-0.x.md)).
 
 - Board layer: own NV3041A QSPI driver (vendor Arduino_GFX init table and framing, manual CS,
   ping-pong DMA bounce buffers, whole-frame pushes like the vendor demos), GT911 driver (reset with
