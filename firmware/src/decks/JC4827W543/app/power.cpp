@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include "app/app_controller.h"
 #include "app/state_store.h"
 #include "board/backlight.h"
 #include "board/lcd_nv3041a.h"
@@ -46,7 +47,7 @@ struct Btn {
 Btn s_btn[2];
 
 void on_touch_wake() {
-  backlight::set(app::state().settings.brightness);
+  backlight::set(app::screen_brightness());
   ESP_LOGI(TAG, "screen on (touch)");
 }
 

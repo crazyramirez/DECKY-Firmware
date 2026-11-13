@@ -16,6 +16,7 @@ Pinned: pioarduino 55.03.35 (Arduino-ESP32 3.3.5 on ESP-IDF 5.5.1), LVGL 8.4.0, 
 | `JC1060P470C_r3` | the same for ESP32-P4 silicon v3.x |
 | `JC4827W543` | 4.3" 480×272, ESP32-S3 |
 | `JC3248W535` | 3.5" 320×480 portrait, ESP32-S3 |
+| `ESP32_4848S040` | 4" 480×480 square, ESP32-S3 (console and flashing through a CH340) |
 | `hwtest_<KEY>` | hardware bring-up: colour bars, touch corners, backlight, Wi-Fi scan, heap logs |
 | `test` | Unity tests of pure logic (alerts, history, protocol), executed **on an ESP32-S3 deck** |
 
@@ -24,7 +25,7 @@ pio run -e JC3248W535 -t upload          # build and flash one deck
 pio device monitor -e JC3248W535         # serial log / console, 115200
 pio run -e hwtest_JC3248W535 -t upload   # hardware test
 pio test -e test --upload-port COM6      # on-target unit tests
-pio run                                  # JC1060P470C, JC4827W543, JC3248W535 (default_envs)
+pio run                                  # JC1060P470C, JC4827W543, JC3248W535, ESP32_4848S040 (default_envs)
 ```
 
 Helper from the repository root: `scripts/flash-firmware.ps1 -Env JC3248W535 -Port COM6 -Monitor`.
@@ -54,16 +55,16 @@ per deck on purpose: each panel has its own layout.
 Core never tests deck names. Differences it must know are capabilities in
 `src/decks/<KEY>/include/deck_config.h`:
 
-| Macro | JC1060P470C | JC4827W543 | JC3248W535 | Meaning |
-|---|:---:|:---:|:---:|---|
-| `PCD_DECK_KEY` | `"JC1060P470C"` | `"JC4827W543"` | `"JC3248W535"` | model id: console `id`, boot log; DECKY Agent's USB updater matches it |
-| `PCD_WIFI_ESP_HOSTED` | 1 | 0 | 0 | Wi-Fi is an ESP32-C6 behind ESP-Hosted: never `WIFI_OFF`, P4 base MAC, scan retries |
-| `PCD_HAS_DEEP_SLEEP` | 0 | 1 | 1 | the deck can wake from deep sleep; without it auto sleep only turns the screen off |
-| `PCD_HAS_SLEEP_BUTTON` | 0 | 1 | 0 | sleep button on the IO17/IO18 header, action in Settings |
-| `PCD_USB_CONSOLE` | 1 | 0 | 0 | console through `board/usb_console` instead of Arduino `Serial` |
-| `PCD_TOUCH_GT911` | 1 | 1 | 0 | the shared GT911 driver (`src/core/board/touch_gt911.*`) is built |
-| `PCD_BACKLIGHT_HZ` | 20000 | 5000 | 5000 | backlight PWM frequency |
-| `PCD_COIN_LOGO_S` / `_M` | 36 / 48 | 24 / 32 | 24 / 32 | coin logo sizes (px) |
+| Macro | JC1060P470C | JC4827W543 | JC3248W535 | ESP32_4848S040 | Meaning |
+|---|:---:|:---:|:---:|:---:|---|
+| `PCD_DECK_KEY` | `"JC1060P470C"` | `"JC4827W543"` | `"JC3248W535"` | `"ESP32_4848S040"` | model id: console `id`, boot log; DECKY Agent's USB updater matches it |
+| `PCD_WIFI_ESP_HOSTED` | 1 | 0 | 0 | 0 | Wi-Fi is an ESP32-C6 behind ESP-Hosted: never `WIFI_OFF`, P4 base MAC, scan retries |
+| `PCD_HAS_DEEP_SLEEP` | 0 | 1 | 1 | 0 | the deck can wake from deep sleep; without it auto sleep only turns the screen off |
+| `PCD_HAS_SLEEP_BUTTON` | 0 | 1 | 0 | 0 | sleep button on the IO17/IO18 header, action in Settings |
+| `PCD_USB_CONSOLE` | 1 | 0 | 0 | 0 | console through `board/usb_console` instead of Arduino `Serial` |
+| `PCD_TOUCH_GT911` | 1 | 1 | 0 | 1 | the shared GT911 driver (`src/core/board/touch_gt911.*`) is built |
+| `PCD_BACKLIGHT_HZ` | 20000 | 5000 | 5000 | 150 | backlight PWM frequency (the ESP32-4848S040's driver goes dark below ~50 % at 5 kHz) |
+| `PCD_COIN_LOGO_S` / `_M` | 36 / 48 | 24 / 32 | 24 / 32 | 24 / 32 | coin logo sizes (px) |
 
 Pins (including `PCD_LCD_H_RES` / `_V_RES`) are in `board_pins.h`, LVGL settings (byte order
 `LV_COLOR_16_SWAP`, buffers) in `lv_conf.h`. Board-only console output and commands go through
@@ -75,8 +76,9 @@ for some texts comes from `ui::deck_tr()` in its `ui/i18n_deck.cpp`.
 - Only the UI task (Arduino `loop()`) touches LVGL. The network task and the demo source post
   `app::Event`s to a bounded queue that the UI task drains.
 - Display: the JC1060P470C renders 40-line bands in internal RAM, copied by DMA2D into the JD9165
-  frame buffer in PSRAM; the S3 decks use LVGL direct mode into a PSRAM frame streamed to the panel
-  over QSPI through internal DMA bounce buffers.
+  frame buffer in PSRAM; the S3 decks use LVGL direct mode into a PSRAM frame, streamed to the panel
+  over QSPI through internal DMA bounce buffers (JC4827W543, JC3248W535) or copied at VSYNC into the
+  frame buffer the RGB panel scans (ESP32-4848S040).
 
 ### Demo mode
 

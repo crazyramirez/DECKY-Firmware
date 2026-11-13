@@ -1,6 +1,6 @@
 # DECKY firmware for every supported deck, from one source tree (firmware/platformio.ini): one build
 # per product environment (JC1060P470C for ESP32-P4 v1.x, JC1060P470C_r3 for v3.x, JC4827W543,
-# JC3248W535), each giving firmware.bin + a merged flash-at-0x0 image. No hardware-test or
+# JC3248W535, ESP32_4848S040), each giving firmware.bin + a merged flash-at-0x0 image. No hardware-test or
 # on-target-test builds: the release carries only the app .bin files.
 # Releases: a push to main whose PCD_FW_VERSION (firmware/src/core/app/version.h) has no GitHub
 # Release yet publishes one from the same run with every deck's files, creating the tag vX.Y.Z
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        env: [JC1060P470C, JC1060P470C_r3, JC4827W543, JC3248W535]
+        env: [JC1060P470C, JC1060P470C_r3, JC4827W543, JC3248W535, ESP32_4848S040]
     steps:
       - uses: actions/checkout@v7
 
@@ -129,7 +129,7 @@ jobs:
         if: steps.ver.outputs.publish == 'true'
         run: |
           ls -l assets
-          for env in JC1060P470C JC1060P470C_r3 JC4827W543 JC3248W535; do
+          for env in JC1060P470C JC1060P470C_r3 JC4827W543 JC3248W535 ESP32_4848S040; do
             for f in "pcdeck-$env-${{ steps.ver.outputs.version }}.bin" "pcdeck-$env-${{ steps.ver.outputs.version }}-merged.bin"; do
               test -s "assets/$f" || { echo "missing $f"; exit 1; }
             done

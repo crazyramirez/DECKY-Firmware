@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#include "app/app_controller.h"
 #include "app/state_store.h"
 #include "board/backlight.h"
 #include "board/lcd_axs15231b.h"
@@ -27,7 +28,7 @@ bool s_woke = false;
 uint32_t s_int_lows = 0;
 
 void on_touch_wake() {
-  backlight::set(app::state().settings.brightness);
+  backlight::set(app::screen_brightness());
   ESP_LOGI(TAG, "screen on (touch)");
 }
 

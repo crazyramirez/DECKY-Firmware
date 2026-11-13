@@ -69,6 +69,10 @@ FONTS = {
     "JC3248W535": dict(text=[12, 14, 16, 20, 28, 40], labels_only=12, ext=(12, 20), syms_max=28,
                        digits=[(72, False), (90, False)],  # Today clock; screensaver clock ("20:48" in 288 px)
                        icons=[]),
+    # 480x480 square, ~170 dpi like the JC3248W535: the same type scale. 12: bottom-bar labels.
+    "ESP32_4848S040": dict(text=[12, 14, 16, 20, 28, 40], labels_only=12, ext=(12, 20), syms_max=28,
+                           digits=[(72, False), (90, False)],  # Today clock; screensaver clock
+                           icons=[]),
 }
 
 

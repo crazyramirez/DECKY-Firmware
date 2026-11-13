@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "app/app_controller.h"
 #include "app/state_store.h"
 #include "board/backlight.h"
 #include "board/lvgl_port.h"
@@ -20,7 +21,7 @@ bool s_btn_raw = false;
 uint32_t s_btn_raw_since = 0;
 
 void on_touch_wake() {
-  backlight::set(app::state().settings.brightness);
+  backlight::set(app::screen_brightness());
   ESP_LOGI(TAG, "screen on (touch)");
 }
 

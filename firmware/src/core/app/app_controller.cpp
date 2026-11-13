@@ -39,6 +39,7 @@ const char *TAG = "app";
 uint32_t s_last_1s = 0;
 uint32_t s_last_diag = 0;
 bool s_rebuild_pending = false;
+bool s_setup_lit = false;  // the backlight shows the setup assistant's level
 
 void set_link(LinkState l) {
   AppState &st = state();
@@ -293,7 +294,8 @@ void setup() {
     if (!has_wifi && !st.settings.demo_mode) ui::setup::open();
   }
   lv_timer_handler();  // first frame before the backlight comes on
-  backlight::set(st.settings.brightness);
+  s_setup_lit = ui::setup::active();
+  backlight::set(screen_brightness());
 
   // The network task owns Wi-Fi; in demo mode it never connects (nothing leaves the device). An S3's
   // radio stays off until then; the P4's ESP32-C6 is brought up once by the network task and kept in
@@ -348,6 +350,12 @@ void loop() {
   battery::poll(now);
   power::poll(now);
   lvgl_port::handle();
+  // The setup assistant opens (first power-on, the status LED...) and closes from the UI: the
+  // backlight follows it at once. While the screen is off, waking up applies it.
+  if (ui::setup::active() != s_setup_lit) {
+    s_setup_lit = !s_setup_lit;
+    if (!power::is_screen_off() && !ui::screensaver::active()) backlight::set(screen_brightness());
+  }
   delay(5);
 }
 
@@ -357,6 +365,10 @@ void set_brightness(uint8_t percent, bool persist) {
   backlight::set(percent);
   if (persist) storage::save(st.settings);
 }
+
+// The setup assistant runs at full brightness: a first power-on is often in a bright room, and
+// the user hasn't chosen a level yet. Their own level comes back when it closes.
+uint8_t screen_brightness() { return ui::setup::active() ? 100 : state().settings.brightness; }
 
 void set_language(storage::Lang lang) {
   AppState &st = state();

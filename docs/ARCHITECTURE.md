@@ -88,14 +88,18 @@ wording — a shorter label for a narrow panel, a hint naming its own buttons �
 
 1. `src/decks/<KEY>/`: `include/deck_config.h`, `board_pins.h`, `lv_conf.h`; `board/` drivers and
    `lvgl_port`; `app/power.*`, `app/deck_hooks.cpp`; `ui/` (theme, screens, `ui_root`,
-   `ui_internal.h`, `i18n_deck.cpp`); start from the deck whose screen is closest.
-2. `firmware/platformio.ini`: a `[deck_<KEY>]` section and `env:<KEY>` / `env:hwtest_<KEY>`.
+   `ui_internal.h`, `i18n_deck.cpp`); start from the deck whose screen is closest (the
+   ESP32-4848S040 started from the JC3248W535: same height and pixel density). The key is the
+   PlatformIO environment and the release file name: letters, digits and `_`, no `-`.
+2. `firmware/platformio.ini`: a `[deck_<KEY>]` section and `env:<KEY>` / `env:hwtest_<KEY>`; a board
+   JSON in `firmware/boards/` when no stock one fits (USB mode, PSRAM type, upload speed).
 3. `firmware/tools/decks.py` (`TOOLS`) and `tools/gen_fonts.py` (`FONTS`); run the generators with
    `--deck <KEY>` (fonts, wallpapers, weather backgrounds, coin logos).
 4. `firmware/sim/decks/<KEY>/main.cpp` (scenes), then `python firmware/sim/build.py <KEY>`.
 5. The CI matrix and the "every deck's images" check in `.github/workflows/firmware.yml`, the table
    in `.github/release-notes.md`, and the board catalogue of DECKY Agent's USB updater
-   (`flasher/boards.py`).
+   (`flasher/boards.py`; a deck behind a USB-UART bridge also needs its VID/PID in
+   `flasher/probe.py`, `USB_UART_BRIDGES`).
 
 Decisions: [ADR 0001](adr/0001-firmware-stack.md) firmware stack ·
 [0004](adr/0004-jc4827w543-landscape-crypto.md) landscape crypto ·

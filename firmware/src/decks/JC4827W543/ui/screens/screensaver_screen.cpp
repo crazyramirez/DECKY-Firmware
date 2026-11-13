@@ -552,7 +552,7 @@ void stop() {
   s_wx = s_wx_icon = s_wx_temp = s_wx_text = s_cards = s_hint = nullptr;
   s_pc = PcCard{};
   s_media = s_coin = Card{};
-  backlight::set(app::state().settings.brightness);
+  backlight::set(app::screen_brightness());
   lv_disp_trig_activity(nullptr);  // closing counts as activity: the countdown starts again
 }
 

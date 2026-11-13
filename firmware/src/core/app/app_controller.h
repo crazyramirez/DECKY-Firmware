@@ -15,6 +15,8 @@ void loop();
 
 // Called from the UI (same task).
 void set_brightness(uint8_t percent, bool persist);
+// Backlight level while the screen is on: full while the setup assistant is open, else the user's.
+uint8_t screen_brightness();
 void set_language(storage::Lang lang);  // deferred UI rebuild
 void set_alerts_enabled(bool on);
 void set_refresh(uint8_t seconds);  // 1, 2 or 5; persisted

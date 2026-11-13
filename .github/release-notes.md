@@ -11,6 +11,7 @@ To flash by hand from the browser, take the files of **your** deck:
 | Guition **JC1060P470C** · 7" 1024×600 | ESP32-P4 **v3.x** | `pcdeck-JC1060P470C_r3-{{version}}-merged.bin` | `pcdeck-JC1060P470C_r3-{{version}}.bin` |
 | Guition **JC4827W543** · 4.3" 480×272 | ESP32-S3 | `pcdeck-JC4827W543-{{version}}-merged.bin` | `pcdeck-JC4827W543-{{version}}.bin` |
 | Guition **JC3248W535** · 3.5" 320×480 | ESP32-S3 | `pcdeck-JC3248W535-{{version}}-merged.bin` | `pcdeck-JC3248W535-{{version}}.bin` |
+| Guition **ESP32-4848S040** · 4" 480×480 | ESP32-S3 | `pcdeck-ESP32_4848S040-{{version}}-merged.bin` | `pcdeck-ESP32_4848S040-{{version}}.bin` |
 
 - The **merged** image (bootloader + partition table + app) goes at **`0x0`**: it erases Wi-Fi,
   pairing and settings, and the setup assistant opens.

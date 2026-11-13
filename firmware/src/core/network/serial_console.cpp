@@ -8,6 +8,7 @@
 #include "app/app_controller.h"
 #include "app/power.h"
 #include "app/state_store.h"
+#include "board/backlight.h"
 #include "board/battery.h"
 #include "app/deck_hooks.h"
 #include "board/console_io.h"
@@ -64,10 +65,10 @@ void cmd_status() {
   storage::load_net(c);
   const net::Status s = net::status();
   const auto &st = app::state();
-  con::printf("fw %s | demo %s | link %d | uptime %lus | reset %s | heap %u\n", PCD_FW_VERSION,
+  con::printf("fw %s | demo %s | link %d | uptime %lus | reset %s | heap %u | backlight %u%%\n", PCD_FW_VERSION,
                 st.settings.demo_mode ? "on" : "off", static_cast<int>(st.link),
                 static_cast<unsigned long>(millis() / 1000), app::reset_reason(),
-                static_cast<unsigned>(ESP.getFreeHeap()));
+                static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(backlight::get()));
   con::printf("wifi ssid='%s' password=%s connected=%d ip=%s rssi=%d\n", c.ssid, c.pass[0] ? "<set>" : "<empty>",
                 s.wifi_connected, s.ip[0] ? s.ip : "-", s.rssi);
   con::printf("agent %s:%u ws=%d rx=%u rejected=%u reconnects=%u backoff=%ums\n", c.host[0] ? c.host : "-", c.port,

@@ -39,6 +39,12 @@ TOOLS = {
         # date (no card; the rest sits in cards).
         today=dict(size=(320, 374), scrim=[(0, 320, 0, 128, 0.55)], feather=50),
     ),
+    "ESP32_4848S040": dict(
+        wallpaper_quality=92,
+        # Square: content area between the top bar and the tab bar. Top of the page: big clock and
+        # date (no card; the rest sits in cards).
+        today=dict(size=(480, 374), scrim=[(0, 480, 0, 128, 0.55)], feather=50),
+    ),
 }
 
 

@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.1.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.2.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -20,6 +20,7 @@ Current version: firmware **1.1.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop 
 | **[Guition JC1060P470C](docs/decks/JC1060P470C.md)** | 7" 1024×600 IPS, landscape | ESP32-P4 + ESP32-C6 for Wi-Fi (ESP-Hosted) | Navigation rail · animated weather on Today | `JC1060P470C` | <img src="docs/decks/JC1060P470C/screenshots/monitor.webp" height="120" alt="JC1060P470C: Monitor page"> |
 | **[Guition JC4827W543](docs/decks/JC4827W543.md)** | 4.3" 480×272 IPS, landscape | ESP32-S3 | Navigation rail · sleep button on IO17/IO18 · deep sleep | `JC4827W543` | <img src="docs/decks/JC4827W543/screenshots/monitor.webp" height="120" alt="JC4827W543: Monitor page"> |
 | **[Guition JC3248W535](docs/decks/JC3248W535.md)** | 3.5" 320×480 IPS, portrait | ESP32-S3 | Bottom tab bar · battery gauge · deep sleep | `JC3248W535` | <img src="docs/decks/JC3248W535/screenshots/monitor.webp" height="120" alt="JC3248W535: Monitor page"> |
+| **[Guition ESP32-4848S040](docs/decks/ESP32_4848S040.md)** | 4" 480×480 IPS, square | ESP32-S3 | Bottom tab bar · two-column player · USB via CH340 | `ESP32_4848S040` | <img src="docs/decks/ESP32_4848S040/screenshots/monitor.webp" height="120" alt="ESP32-4848S040: Monitor page"> |
 
 The key is the deck's name everywhere in this repository: PlatformIO environment, source folder
 (`firmware/src/decks/<KEY>`), release file (`pcdeck-<KEY>-<version>…`) and the model the deck
@@ -69,13 +70,13 @@ The same features on every deck; each screen is laid out for its panel (see the 
 
 Where the decks differ:
 
-| | JC1060P470C (7") | JC4827W543 (4.3") | JC3248W535 (3.5") |
-|---|---|---|---|
-| Navigation | rail on the left | rail on the left | tab bar at the bottom |
-| Today | weather photo, animated rain / snow / storm | weather photo | weather photo, forecast below the clock |
-| Sleep | screen off (no deep sleep on this board) | deep sleep; optional IO17/IO18 button | deep sleep (a tap wakes it) |
-| Deck power | charge bolt on USB | charge bolt on USB | battery percentage on its LiPo |
-| First run | setup assistant | setup assistant | setup wizard (5 steps) |
+| | JC1060P470C (7") | JC4827W543 (4.3") | JC3248W535 (3.5") | ESP32-4848S040 (4" square) |
+|---|---|---|---|---|
+| Navigation | rail on the left | rail on the left | tab bar at the bottom | tab bar at the bottom |
+| Today | weather photo, animated rain / snow / storm | weather photo | weather photo, forecast below the clock | weather photo, forecast below the clock |
+| Sleep | screen off (no deep sleep on this board) | deep sleep; optional IO17/IO18 button | deep sleep (a tap wakes it) | screen off (no deep sleep on this board) |
+| Deck power | charge bolt on USB | charge bolt on USB | battery percentage on its LiPo | — (USB through a CH340) |
+| First run | setup assistant | setup assistant | setup wizard (5 steps) | setup wizard (5 steps) |
 
 ---
 
@@ -122,6 +123,7 @@ Take the files of **your** deck:
 | JC1060P470C, ESP32-P4 **v3.x** | `pcdeck-JC1060P470C_r3-1.0.0-merged.bin` | `pcdeck-JC1060P470C_r3-1.0.0.bin` |
 | JC4827W543 | `pcdeck-JC4827W543-1.0.0-merged.bin` | `pcdeck-JC4827W543-1.0.0.bin` |
 | JC3248W535 | `pcdeck-JC3248W535-1.0.0-merged.bin` | `pcdeck-JC3248W535-1.0.0.bin` |
+| ESP32-4848S040 | `pcdeck-ESP32_4848S040-1.2.0-merged.bin` | `pcdeck-ESP32_4848S040-1.2.0.bin` |
 
 - The **merged** image (bootloader, partition table and app) goes at **`0x0`**: it erases Wi-Fi,
   pairing and settings, and the setup assistant opens. The **app-only** image goes at
@@ -171,6 +173,7 @@ Arduino-ESP32 3.3.5 on ESP-IDF 5.5.1 (pioarduino 55.03.35), LVGL 8.4.0, versions
 |---|---|
 | `JC1060P470C` · `JC1060P470C_r3` | 7" deck, ESP32-P4 v1.x · v3.x |
 | `JC4827W543` · `JC3248W535` | 4.3" deck · 3.5" deck |
+| `ESP32_4848S040` | 4" square deck |
 | `hwtest_<KEY>` | hardware bring-up: colour bars, touch corners, backlight, Wi-Fi scan, heap logs |
 | `test` | on-target unit tests of pure logic (alerts, history, protocol), on an ESP32-S3 deck |
 
@@ -180,7 +183,7 @@ pio run -e JC4827W543 -t upload            # build and flash one deck (keeps Wi-
 pio device monitor -e JC4827W543           # serial log and console, 115200
 pio run -e hwtest_JC4827W543 -t upload     # hardware test
 pio test -e test --upload-port COM6        # unit tests, run on the board
-pio run                                    # build the three decks (default environments)
+pio run                                    # build every deck (default environments)
 ```
 
 Or `scripts/flash-firmware.ps1 -Env <environment> [-Port COM6] [-Monitor]` from the repository
@@ -241,7 +244,8 @@ Deck-only commands: `dbg <grad|art|clip|marquee> <0|1>` (rendering experiments) 
 [JC1060P470C](docs/decks/JC1060P470C.md#usb-console); `sleep` (deep sleep) on the
 [JC4827W543](docs/decks/JC4827W543.md#usb-console) and
 [JC3248W535](docs/decks/JC3248W535.md#usb-console); `setup [1-5|off]` (setup wizard at a step,
-nothing erased) on the JC3248W535.
+nothing erased) on the JC3248W535 and the [ESP32-4848S040](docs/decks/ESP32_4848S040.md#usb-console)
+(console on its CH340 port).
 
 ## Troubleshooting
 
@@ -292,7 +296,7 @@ docs/
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — core and decks, `deck_config.h`, tasks and data flow
 - [CHANGELOG.md](docs/CHANGELOG.md) — release notes (each deck's 0.x history is linked from it)
 - Deck pages: [JC1060P470C](docs/decks/JC1060P470C.md) · [JC4827W543](docs/decks/JC4827W543.md) ·
-  [JC3248W535](docs/decks/JC3248W535.md)
+  [JC3248W535](docs/decks/JC3248W535.md) · [ESP32-4848S040](docs/decks/ESP32_4848S040.md)
 - Decisions: [0001](docs/adr/0001-firmware-stack.md) firmware stack ·
   [0004](docs/adr/0004-jc4827w543-landscape-crypto.md) JC4827W543, landscape UI, crypto ·
   [0005](docs/adr/0005-jc1060p470c-esp32-p4.md) JC1060P470C, ESP32-P4 ·

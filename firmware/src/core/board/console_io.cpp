@@ -43,10 +43,15 @@ void printf(const char *fmt, ...) {
   Serial.print(buf);
 }
 size_t write(const void *data, size_t len, uint32_t timeout_ms) {
+#if ARDUINO_USB_CDC_ON_BOOT  // Serial is the USB-Serial/JTAG (HWCDC): it drops what the host doesn't read
   Serial.setTxTimeoutMs(timeout_ms);  // block (instead of dropping) while the host drains the FIFO
   const size_t n = Serial.write(static_cast<const uint8_t *>(data), len);
   Serial.setTxTimeoutMs(100);
   return n;
+#else  // Serial is UART0 behind a USB-UART bridge: writes block until the bytes are on their way
+  (void)timeout_ms;
+  return Serial.write(static_cast<const uint8_t *>(data), len);
+#endif
 }
 void flush() { Serial.flush(); }
 int read(uint8_t *buf, size_t max) {

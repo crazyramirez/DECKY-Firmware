@@ -17,6 +17,7 @@
 
 namespace app {
 void set_brightness(uint8_t p, bool) { state().settings.brightness = p; }
+uint8_t screen_brightness() { return ui::setup::active() ? 100 : state().settings.brightness; }
 void set_language(storage::Lang l) { state().settings.lang = l; }
 void set_alerts_enabled(bool on) { state().settings.alerts_enabled = on; }
 void set_refresh(uint8_t s) { state().settings.refresh_s = s; }
