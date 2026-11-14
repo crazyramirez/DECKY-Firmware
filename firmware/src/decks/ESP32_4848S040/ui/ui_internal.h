@@ -171,7 +171,8 @@ void open_picker();   // wallpaper picker sheet (top layer, Settings)
 void on_rebuild();    // UI rebuilt (language): close the screensaver and the picker
 }
 namespace place {
-void open();        // city search sheet (top layer)
+enum class Mode : uint8_t { Main, Add };  // choose the main place / add a city to Today
+void open(Mode mode = Mode::Main);  // city search sheet (top layer)
 void on_results();  // net::place_results() changed
 void dev_search(const char *query);  // developer aid: open the sheet and search (USB console)
 }

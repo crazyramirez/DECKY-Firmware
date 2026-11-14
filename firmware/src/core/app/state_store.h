@@ -42,6 +42,11 @@ struct AppState {
   telemetry::Weather weather;
   uint32_t weather_rx_ms = 0;
   char weather_error[24] = "";
+  // The same for settings.more_cities[i], and the city Today shows (0 = the main place). Read them
+  // through app/cities.h (city_weather(), today_city()...).
+  telemetry::Weather more_weather[storage::kMaxMoreCities];
+  char more_error[storage::kMaxMoreCities][24] = {};
+  uint8_t today_city = 0;
 
   // A PC app is connected (or a paired one may still connect, right after boot). Only then are the
   // PC pages (Monitor, Thermals, Player) in the tab bar; weather and crypto don't need a PC.

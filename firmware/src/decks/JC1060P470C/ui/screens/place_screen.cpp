@@ -1,4 +1,5 @@
-// City search for the weather (Today tab, Settings > Time & weather > Location).
+// City search for the weather: the main place (Today's call to action, the setup assistant, the
+// Cities sheet) or one more city for Today (Cities sheet > Add city).
 // Full-screen sheet on the top layer: header, search field, results. The keyboard is shown while
 // typing and hidden when a search starts, so the results get the whole screen. The search goes
 // through the PC (agent "weather.search" -> Open-Meteo geocoding); picking a result stores the
@@ -8,8 +9,10 @@
 #include <string.h>
 
 #include "app/app_controller.h"
+#include "app/cities.h"
 #include "app/state_store.h"
 #include "network/net_task.h"
+#include "ui/cities_ui.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
 
@@ -30,6 +33,7 @@ lv_obj_t *s_list = nullptr;
 lv_obj_t *s_spinner = nullptr;
 telemetry::Place s_results[telemetry::kMaxPlaces];
 int s_count = 0;
+Mode s_mode = Mode::Main;
 
 void close() {
   if (s_modal) {
@@ -85,10 +89,19 @@ void pick_cb(lv_event_t *e) {
   const int i = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(e)));
   if (i < 0 || i >= s_count) return;
   const telemetry::Place pl = s_results[i];
+  const Mode mode = s_mode;
   close();
-  app::set_place(pl.name, pl.lat, pl.lon);
   char b[64];
   snprintf(b, sizeof(b), PCD_SYM_PIN "  %s", pl.name);
+  if (mode == Mode::Add) {  // one more city for Today: back on the Cities sheet, where it now is
+    if (app::add_city(pl.name, pl.lat, pl.lon) < 0)
+      toast(tr(Str::CityFull), kWarning);
+    else
+      toast(b, kOk);
+    return;
+  }
+  cities::close();
+  app::set_place(pl.name, pl.lat, pl.lon);
   toast(b, kOk);
   navigate(Page::Today);
 }
@@ -139,8 +152,9 @@ void kb_cb(lv_event_t *e) {
 
 }  // namespace
 
-void open() {
+void open(Mode mode) {
   close();
+  s_mode = mode;
   s_modal = lv_obj_create(lv_layer_top());
   lv_obj_remove_style_all(s_modal);
   lv_obj_set_size(s_modal, LV_PCT(100), LV_PCT(100));
@@ -174,9 +188,9 @@ void open() {
   lv_obj_t *xl = make_label(x, font_body(), kText, LV_SYMBOL_CLOSE);
   lv_obj_center(xl);
   lv_obj_add_event_cb(x, [](lv_event_t *) { close(); }, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t *t = make_label(head, font_title(), kText, tr(Str::Location));
+  lv_obj_t *t = make_label(head, font_title(), kText, tr(mode == Mode::Add ? Str::CityAdd : Str::Location));
   lv_obj_align(t, LV_ALIGN_LEFT_MID, 66, 0);
-  lv_obj_t *st = make_label(head, font_small(), kMuted, tr(Str::PlaceSubtitle));
+  lv_obj_t *st = make_label(head, font_small(), kMuted, tr(mode == Mode::Add ? Str::CityAddSubtitle : Str::PlaceSubtitle));
   lv_obj_set_size(st, 375, lv_font_get_line_height(font_small()));  // one line, "..." if longer
   lv_label_set_long_mode(st, LV_LABEL_LONG_DOT);
   lv_obj_set_style_text_align(st, LV_TEXT_ALIGN_RIGHT, 0);

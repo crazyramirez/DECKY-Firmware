@@ -9,6 +9,50 @@ namespace storage {
 namespace {
 const char *kNs = "pcd";
 constexpr uint8_t kSchema = 1;
+
+// "cities" blob: one fixed record per extra city (name[40], lat, lon, tz_min), no padding.
+constexpr size_t kCityRec = sizeof(City::name) + 2 * sizeof(float) + sizeof(int16_t);
+
+bool valid_coords(float lat, float lon) {
+  return isfinite(lat) && isfinite(lon) && fabsf(lat) <= 90 && fabsf(lon) <= 180;
+}
+
+void load_cities(Preferences &p, Settings &out) {
+  uint8_t buf[kCityRec * kMaxMoreCities];
+  const size_t got = p.isKey("cities") ? p.getBytes("cities", buf, sizeof(buf)) : 0;
+  out.more_count = 0;
+  if (out.place_name[0] == '\0') return;  // extra cities only exist next to a main place
+  for (size_t off = 0; off + kCityRec <= got && out.more_count < kMaxMoreCities; off += kCityRec) {
+    City c;
+    memcpy(c.name, buf + off, sizeof(c.name));
+    c.name[sizeof(c.name) - 1] = '\0';
+    memcpy(&c.lat, buf + off + sizeof(c.name), sizeof(float));
+    memcpy(&c.lon, buf + off + sizeof(c.name) + sizeof(float), sizeof(float));
+    memcpy(&c.tz_min, buf + off + sizeof(c.name) + 2 * sizeof(float), sizeof(int16_t));
+    if (!c.name[0] || !valid_coords(c.lat, c.lon)) continue;
+    if (c.tz_min < -14 * 60 || c.tz_min > 14 * 60) c.tz_min = kCityNoTz;
+    out.more_cities[out.more_count++] = c;
+  }
+}
+
+void save_cities(Preferences &p, const Settings &s) {
+  uint8_t buf[kCityRec * kMaxMoreCities];
+  const int n = s.more_count < kMaxMoreCities ? s.more_count : kMaxMoreCities;
+  if (n == 0) {
+    if (p.isKey("cities")) p.remove("cities");
+    return;
+  }
+  memset(buf, 0, sizeof(buf));
+  for (int i = 0; i < n; i++) {
+    const City &c = s.more_cities[i];
+    uint8_t *r = buf + i * kCityRec;
+    strlcpy(reinterpret_cast<char *>(r), c.name, sizeof(c.name));
+    memcpy(r + sizeof(c.name), &c.lat, sizeof(float));
+    memcpy(r + sizeof(c.name) + sizeof(float), &c.lon, sizeof(float));
+    memcpy(r + sizeof(c.name) + 2 * sizeof(float), &c.tz_min, sizeof(int16_t));
+  }
+  p.putBytes("cities", buf, kCityRec * n);
+}
 }  // namespace
 
 bool valid_auto_sleep(uint8_t m) { return m == 0 || m == 1 || m == 2 || m == 5 || m == 10; }
@@ -59,8 +103,8 @@ bool load(Settings &out) {
   p.getString("place", out.place_name, sizeof(out.place_name));
   out.place_lat = p.getFloat("plat", 0.0f);
   out.place_lon = p.getFloat("plon", 0.0f);
-  if (!isfinite(out.place_lat) || !isfinite(out.place_lon) || fabsf(out.place_lat) > 90 || fabsf(out.place_lon) > 180)
-    out.place_name[0] = '\0';
+  if (!valid_coords(out.place_lat, out.place_lon)) out.place_name[0] = '\0';
+  load_cities(p, out);
   out.temp_f = p.getBool("tempf", false);
   out.clock_12h = p.getBool("clk12", false);
   out.today_bg = p.getBool("todaybg", true);
@@ -113,6 +157,7 @@ bool save(const Settings &s) {
   p.putString("place", s.place_name);
   p.putFloat("plat", s.place_lat);
   p.putFloat("plon", s.place_lon);
+  save_cities(p, s);
   p.putBool("tempf", s.temp_f);
   p.putBool("clk12", s.clock_12h);
   p.putBool("todaybg", s.today_bg);

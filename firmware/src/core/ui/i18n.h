@@ -49,7 +49,9 @@ enum class Str : uint16_t {
   SetupNeedWifi, SetupCityDesc, SetupNeedPc, SetupCoinsDesc, SetupDoneTitle, SetupDoneDesc, SetupStart,
   SetupNext, SetupSkip, SectionScreensaver, Screensaver, SsAfter, SsBackground, SsFixed, SsRandom,
   SsCycle, SsEvery, SsImage, SsShow, SsWeather, SsPc, SsMusic, SsCrypto, SsDim, SsPreview, SsHint,
-  SsPickerTitle, SsPickerHint, SsReplacedBySaver, SsTapToClose, TodayBg,
+  SsPickerTitle, SsPickerHint, SsReplacedBySaver, SsTapToClose, TodayBg, Cities, CityAdd,
+  CityAddSubtitle, CitiesHintOne, CitiesHint, CitiesEditHint, CityMain, CityEdit, CityDone, CityTomorrow,
+  CityYesterday, CitySameTime, CityFull,
   Count
 };
 

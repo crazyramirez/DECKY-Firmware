@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "app/app_controller.h"
+#include "app/cities.h"
 #include "app/power.h"
 #include "app/state_store.h"
 #include "board/backlight.h"
@@ -20,6 +21,7 @@
 #include "network/net_task.h"
 #include "storage/net_store.h"
 #include "storage/settings_store.h"
+#include "ui/cities_ui.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
@@ -131,8 +133,9 @@ void handle(char *line) {
   if (!strcmp(cmd, "help")) {
     out("commands: help | status | id | wifi <ssid> <password> | wifi reconnect | agent <host> [port] | discover | pair <ip> <code> [port]");
     out("          net clear | page <monitor|thermals|controls|settings|wifi|pair|cpu|gpu|today|crypto> | scroll <y>");
-    out("          coin <SYM> | coins <BTC,ETH,...> | crypto | modal paircode|pairmanual|wifipass|place [q]|coins");
+    out("          coin <SYM> | coins <BTC,ETH,...> | crypto | modal paircode|pairmanual|wifipass|place [q]|cities|coins");
     out("          tabs <a> <b> <c> <d> <e> | tabhide <t> <0|1> | place <lat> <lon> <name> | weather | screen on|off | saver [now|off|bg <n>] | shot | demo on|off | reboot");
+    out("          city add <lat> <lon> <name> | city del <n> | city main <n> | city show <n>   (more cities for Today; \"weather\" lists them)");
     out("          nopc 1|0   (ignore the paired PC until reboot: weather and crypto straight from the internet)");
     if (*deck::console_help()) out(deck::console_help());
   } else if (!strcmp(cmd, "status")) {
@@ -222,6 +225,7 @@ void handle(char *line) {
     else if (!strcmp(rest, "wifipass")) ui::wifi::dev_open_connect("MyNetwork");
     else if (!strncmp(rest, "place", 5)) ui::place::dev_search(rest[5] == ' ' ? rest + 6 : "");
     else if (!strcmp(rest, "coins")) ui::coins::open();
+    else if (!strcmp(rest, "cities")) ui::cities::open();
     out("OK");
   } else if (!strcmp(cmd, "page")) {
     static const struct {
@@ -286,12 +290,43 @@ void handle(char *line) {
     } else {
       out("ERR usage: place <lat> <lon> <name> | place off");
     }
+  } else if (!strcmp(cmd, "city")) {
+    // city add <lat> <lon> <name...> | city del <n> | city main <n> | city show <n>   (n as listed by "weather")
+    float lat = 0, lon = 0;
+    int used = 0, n = -1;
+    if (sscanf(rest, "add %f %f %n", &lat, &lon, &used) == 2 && used > 0 && rest[used]) {
+      const int i = app::add_city(rest + used, lat, lon);
+      if (i < 0)
+        out("ERR the list is full");
+      else
+        con::printf("OK city %d\n", i);
+    } else if (sscanf(rest, "del %d", &n) == 1 && n >= 0 && n < app::city_count()) {
+      app::remove_city(n);
+      out("OK");
+    } else if (sscanf(rest, "main %d", &n) == 1 && n > 0 && n < app::city_count()) {
+      app::make_main_city(n);
+      out("OK");
+    } else if (sscanf(rest, "show %d", &n) == 1 && n >= 0 && n < app::city_count()) {
+      app::show_city(n);
+      out("OK");
+    } else {
+      out("ERR usage: city add <lat> <lon> <name> | city del <n> | city main <n> | city show <n>");
+    }
   } else if (!strcmp(cmd, "weather")) {
     const auto &st = app::state();
     const auto &w = st.weather;
     con::printf("place '%s' %.4f,%.4f | ok=%d err='%s' code=%d t=%.1f day=%d hours=%u days=%u\n",
                   st.settings.place_name, st.settings.place_lat, st.settings.place_lon, w.ok, st.weather_error, w.code,
                   w.temp, w.day, w.hour_count, w.day_count);
+    for (int i = 1; i < app::city_count(); i++) {
+      const auto &c = st.settings.more_cities[i - 1];
+      const auto &cw = app::city_weather(i);
+      struct tm ct;
+      char hm[8] = "--:--";
+      if (app::city_time(i, ct)) snprintf(hm, sizeof(hm), "%02d:%02d", ct.tm_hour, ct.tm_min);
+      con::printf("city %d '%s' %.4f,%.4f | ok=%d err='%s' code=%d t=%.1f day=%d | %s%s\n", i, c.name, c.lat, c.lon,
+                    cw.ok, app::city_error(i), cw.code, cw.temp, cw.day, hm, app::today_city() == i ? " (shown)" : "");
+    }
     struct tm t;
     if (app::local_time(t))
       con::printf("clock %04d-%02d-%02d %02d:%02d:%02d (UTC%+d min)\n", t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,

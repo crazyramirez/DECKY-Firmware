@@ -1,7 +1,9 @@
 // Today: a glanceable home screen (1024x600), two calm columns.
-//   left (on the background, no card): 150 px clock, long date, current conditions (92 px icon,
-//          78 px temperature, max / min, condition; tap: city search), humidity / wind / feels like,
-//          sunrise / sunset
+//   left (on the background, no card): 150 px clock, long date, the city pill (which city this is, one
+//          dot per city; tap: the Cities sheet), current conditions (92 px icon, 78 px temperature,
+//          max / min, condition), humidity / wind / feels like, sunrise / sunset
+// With more than one city (app/cities.h) a horizontal swipe changes city: the clock, the date, the
+// weather and the picture are that city's.
 //   right: "next hours" card (6 columns: hour, icon, temperature, rain chance) and "next days" card
 //          (5 rows: day, icon, rain chance, min, range bar on the week's scale, max)
 // The data source credit goes to the top-bar subtitle.
@@ -18,10 +20,12 @@
 
 #include <initializer_list>
 
+#include "app/cities.h"
 #include "app/power.h"
 #include "app/state_store.h"
 #include "assets/weather_bg.h"
 #include "esp_heap_caps.h"
+#include "ui/cities_ui.h"
 #include "ui/ui.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
@@ -153,6 +157,7 @@ lv_obj_t *s_time = nullptr;
 lv_obj_t *s_date = nullptr;
 int s_last_min = -1;
 bool s_last_12h = false;
+cities::Pill s_pill;  // which city, under the date
 // call to action (no place yet)
 lv_obj_t *s_cta = nullptr;
 // now (left column)
@@ -474,6 +479,7 @@ lv_obj_t *card_title(lv_obj_t *card, Str s) {
 }
 
 void open_place_cb(lv_event_t *) { place::open(); }
+void open_cities_cb(lv_event_t *) { cities::open(); }
 
 // Left column grid (page coordinates): one ink edge at kLeftX; the temperature and the second stats
 // column share kCol2; the clock's digits sit on the cards' top edge and the last stats line on
@@ -521,12 +527,17 @@ void build_left(lv_obj_t *page) {
   s_rise = slot(s_stats, font_small(), kPower, 0, y2 - y1, kCol2 - 12, LV_TEXT_ALIGN_LEFT);
   s_set = slot(s_stats, font_small(), 0xC9D3E3, kCol2, y2 - y1, kCol3 - kCol2 - 12, LV_TEXT_ALIGN_LEFT);
 
-  // Current conditions (icon, then the condition line 30 px under it) centred between the date's
-  // baseline and the first stats line's cap top.
+  // City pill: its left edge on the column edge, 20 px under the date's baseline.
+  cities::pill_create(s_pill, page, font_small(), true, kLeftW, 9);
+  lv_obj_set_pos(s_pill.root, kLeftX, date_base + 20);
+  const int pill_bottom = date_base + 20 + lv_obj_get_style_height(s_pill.root, 0);
+
+  // Current conditions (icon, then the condition line 30 px under it) centred between the pill and
+  // the first stats line's cap top.
   const Ink typical = ink(font_weather_xl(), first_letter(PCD_SYM_CLOUD_SUN));
   const int icon_h = typical.b - typical.t;
   const int group_h = icon_h + 30 + cap_height(font_title());
-  const int free_top = date_base, free_bottom = base1 - cap_height(font_small());
+  const int free_top = pill_bottom, free_bottom = base1 - cap_height(font_small());
   s_icon_top = free_top + (free_bottom - free_top - group_h) / 2;
   s_cond_base = s_icon_top + group_h;
   s_now = plain(page, kLeftX - kNowInset, s_icon_top - kNowInset, kLeftW + 2 * kNowInset,
@@ -535,7 +546,7 @@ void build_left(lv_obj_t *page) {
   lv_obj_set_style_radius(s_now, 20, 0);
   lv_obj_set_style_bg_color(s_now, lv_color_white(), LV_STATE_PRESSED);
   lv_obj_set_style_bg_opa(s_now, LV_OPA_10, LV_STATE_PRESSED);
-  lv_obj_add_event_cb(s_now, open_place_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_add_event_cb(s_now, open_cities_cb, LV_EVENT_CLICKED, nullptr);
   s_now_icon = make_label(s_now, font_weather_xl(), kMuted, PCD_SYM_CLOUD);
   s_now_temp = make_label(s_now, font_clock(), kText, "--°");
   s_now_hilo = make_label(s_now, font_small(), kText, "");
@@ -778,16 +789,21 @@ lv_obj_t *create(lv_obj_t *parent) {
   build_hours(s_page);
   build_days(s_page);
   build_cta(s_page);
+  cities::attach_swipe(s_page);
   update();
-  tick();
   return s_page;
 }
 
 void update() {
   if (!s_page) return;
-  const auto &st = app::state();
-  const bool has_place = st.settings.place_name[0] != '\0';
-  const bool data = has_place && st.weather.ok;
+  // The city Today shows (app/cities.h): its forecast, its name, its clock.
+  const int city = app::today_city();
+  const telemetry::Weather &wx = app::city_weather(city);
+  const char *err = app::city_error(city);
+  const bool has_place = app::city_count() > 0;
+  const bool data = has_place && wx.ok;
+  cities::pill_update(s_pill);
+  tick();
   // No place yet: the clock stays, the call to action takes the right column.
   show(s_cta, !has_place);
   show(s_now, has_place);
@@ -795,9 +811,9 @@ void update() {
   show(s_days, data);
   if (!data) show(s_stats, false);
   if (current_page() == Page::Today) {
-    char sub[80];
+    char sub[96];
     if (has_place)
-      snprintf(sub, sizeof(sub), PCD_SYM_PIN " %s%s%s", st.settings.place_name, data ? "  ·  " : "",
+      snprintf(sub, sizeof(sub), PCD_SYM_PIN " %s%s%s", app::city_name(city), data ? "  ·  " : "",
                data ? tr(Str::WeatherSource) : "");
     set_subtitle(has_place ? sub : nullptr);
   }
@@ -806,19 +822,19 @@ void update() {
     apply_tint(0);
     return;
   }
-  const char *status = !strcmp(st.weather_error, "pc_app_old") ? tr(Str::WeatherOldApp)
-                       : st.weather_error[0]                    ? tr(Str::WeatherFailed)
-                       : !app::data_online()                    ? tr(Str::WeatherOffline)
-                                                                : tr(Str::WeatherLoading);
-  fill_now(st.weather, data, status);
+  const char *status = !strcmp(err, "pc_app_old") ? tr(Str::WeatherOldApp)
+                       : err[0]                    ? tr(Str::WeatherFailed)
+                       : !app::data_online()       ? tr(Str::WeatherOffline)
+                                                   : tr(Str::WeatherLoading);
+  fill_now(wx, data, status);
   if (!data) {
     apply_photo(nullptr);
     apply_tint(0);
     return;
   }
-  if (!apply_photo(&st.weather)) apply_tint(tint(kind(st.weather.code), st.weather.day));
-  fill_hours(st.weather);
-  fill_days(st.weather);
+  if (!apply_photo(&wx)) apply_tint(tint(kind(wx.code), wx.day));
+  fill_hours(wx);
+  fill_days(wx);
 }
 
 const char *weather_icon(int code, bool day) { return icon(kind(code), day); }
@@ -839,13 +855,14 @@ void tick() {
   if (!s_time) return;
   struct tm t;
   const auto &cfg = app::state().settings;
-  if (!app::local_time(t)) {
+  const int city = app::today_city();  // the clock is the shown city's
+  if (!app::city_time(city, t)) {
     set_text(s_time, "--:--");
     set_text(s_date, "");
     s_last_min = -1;
     return;
   }
-  const int stamp = t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min;
+  const int stamp = (t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min) * storage::kMaxCities + city;
   if (stamp == s_last_min && cfg.clock_12h == s_last_12h) return;
   s_last_min = stamp;
   s_last_12h = cfg.clock_12h;

@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.2.2** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.3.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -43,10 +43,12 @@ The same features on every deck; each screen is laid out for its panel (see the 
   slider that follows your finger. Sites that publish no artwork get a generated cover.
 - **Today** — clock (24 h or 12 h) and date, current weather (temperature, max / min, humidity,
   wind, feels-like, sunrise and sunset), the next 6 hours and the next 5 days, over a photograph of
-  the current weather by day or by night (*Settings › Time & weather › Weather background*). Tap
-  the place to change it (city search on the on-screen keyboard). Weather from
-  [Open-Meteo](https://open-meteo.com), every 10 minutes. On the 7" deck rain, snow and storm
-  flashes are animated over the picture.
+  the current weather by day or by night (*Settings › Time & weather › Weather background*).
+  **Up to 6 cities**: swipe sideways and the whole page (clock, date, weather, picture) is the next
+  city's, with a dot per city; tap the city for the **Cities** sheet, a world clock with every
+  city's local time and weather, where you add (city search on the on-screen keyboard), remove or
+  pick the main one. Weather from [Open-Meteo](https://open-meteo.com), every 10 minutes. On the
+  7" deck rain, snow and storm flashes are animated over the picture.
 - **Crypto** — total market cap, BTC dominance and the Fear & Greed index; up to 12 coins (of 54)
   with logo, rank, 24 h sparkline, live price and change. Tap a coin for its chart: 7 ranges
   (1H…MAX), line or candlesticks, volume, and a finger crosshair to read any point. Currencies:
@@ -146,7 +148,7 @@ native USB of these chips: use Espressif's ESP Tool. Only one program can use th
 
 - With DECKY Agent connected, the deck talks **only to the PC, on the local network**. The firewall
   rules created by the Windows installer apply to *private* networks only.
-- Internet requests: the weather (Open-Meteo: the city you search for and the chosen place's
+- Internet requests: the weather (Open-Meteo: the city you search for and the chosen cities'
   coordinates) and crypto data (Binance, CoinGecko, alternative.me: the coin pairs and the currency
   you chose). DECKY Agent makes them while it is connected; without it the deck makes the same
   requests itself, over HTTPS with the server certificates verified. No account, no key, nothing
@@ -231,10 +233,11 @@ Connect the deck by USB and open `pio device monitor -e <KEY>` (115200). Type `h
 | `agent <host> [port]` · `discover` · `pair <ip> <code> [port]` | Set the PC address · list PCs found by mDNS (`_pcdeck._tcp`) · pair from the console |
 | `net clear` | Erase Wi-Fi and pairing data |
 | `page <monitor\|thermals\|controls\|today\|crypto\|settings\|wifi\|pair\|cpu\|gpu>` · `scroll <y>` | Navigate (developer aid) |
-| `modal paircode\|pairmanual\|wifipass\|place [q]\|coins` | Open a sheet (developer aid for screenshots) |
+| `modal paircode\|pairmanual\|wifipass\|place [q]\|cities\|coins` | Open a sheet (developer aid for screenshots) |
 | `coin <SYM>` · `coins <BTC,ETH,…>` · `crypto` | Open a coin's chart · set the watched coins · show the crypto data state |
 | `tabs <a> <b> <c> <d> <e>` · `tabhide <tab> <0\|1>` | Tab order and visibility (0 Monitor, 1 Thermals, 2 Player, 3 Today, 4 Crypto) |
-| `place <lat> <lon> <name>` · `place off` · `weather` | Set / clear the weather place · show weather and clock state |
+| `place <lat> <lon> <name>` · `place off` · `weather` | Set / clear the main weather place · show weather and clock state (every city) |
+| `city add <lat> <lon> <name>` · `city del <n>` · `city main <n>` · `city show <n>` | More cities for Today: add · remove · make it the main one · show it on Today |
 | `screen on\|off` · `saver [now\|off\|bg <n>]` | Screen on / off · show or close the screensaver, pick its wallpaper (0..7) |
 | `shot` | Screenshot over USB (`firmware/tools/screenshot.py` turns it into a PNG) |
 | `demo on\|off` · `nopc 1\|0` | Sample data instead of the PC · ignore the paired PC until reboot (developer aids) |

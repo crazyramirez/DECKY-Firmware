@@ -6,6 +6,25 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.3.0 — More cities on Today
+
+- **Every deck: Today can hold up to 6 cities.** Swipe sideways on Today and the whole page is the
+  next city's: its local time and date, its weather, forecast and picture (and, on the 7" deck, its
+  rain or snow). A pill shows which city it is, how far ahead its clock is (`Tokio · +8 h`) and a
+  dot per city; with one city it shows a `+`.
+- **Cities sheet** (tap the city on Today, or *Settings › Time & weather › Cities*): a world clock
+  with every city's local time, day (*Today / Tomorrow / Yesterday*), time difference, weather and
+  temperature. Tap a city to see it on Today. *Add city* opens the city search; *Edit* shows the
+  actions: remove a city, make it the main one, or change the main city.
+- The **main city** is the one that sets the deck's clock without a PC and shows on the screensaver,
+  as before; the others keep their own time zone (summer time included) and are remembered across
+  restarts. Every city's forecast is refreshed every 10 minutes, through DECKY Agent when it is
+  connected and straight from Open-Meteo otherwise: no new version of the PC app is needed.
+- Long city names are cut letter by letter with `…` (LVGL cut at the last whole word and left half
+  the room empty).
+- USB console: `city add <lat> <lon> <name>`, `city del <n>`, `city main <n>`, `city show <n>`,
+  `modal cities`; `weather` lists every city.
+
 ## firmware 1.2.2 — No more random restarts after boot
 
 - **Every deck: a restart a few seconds after power-on is gone.** The first web request (weather,

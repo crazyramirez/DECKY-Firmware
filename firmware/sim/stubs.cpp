@@ -31,11 +31,7 @@ void set_tab_hidden(uint8_t tab, bool hidden) {
   h = hidden ? (h | (1u << tab)) : (h & ~(1u << tab));
   ui::apply_tab_order();
 }
-void set_place(const char *name, float lat, float lon) {
-  strlcpy(state().settings.place_name, name, sizeof(state().settings.place_name));
-  state().settings.place_lat = lat;
-  state().settings.place_lon = lon;
-}
+// set_place() and the other cities of Today are the real ones (core/app/cities.cpp).
 void set_temp_f(bool f) { state().settings.temp_f = f; }
 void set_clock_12h(bool t) { state().settings.clock_12h = t; }
 void set_today_bg(bool on) { state().settings.today_bg = on; }
@@ -112,7 +108,7 @@ int discovery_results(PcEntry *out, int max) {
 }
 void start_pairing(const PcEntry &, const char *) {}
 void forget_pc() {}
-void set_weather_place(bool, float, float) {}
+void set_weather_places(const WxPlace *, int) {}
 void request_weather() {}
 void search_places(const char *, const char *) {}
 int place_results(telemetry::Place *, int) { return 0; }

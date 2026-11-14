@@ -29,6 +29,7 @@
 #include "esp_heap_caps.h"
 #include "network/net_task.h"
 #include "ui/ui.h"
+#include "ui/cities_ui.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
 
@@ -598,7 +599,7 @@ lv_obj_t *create(lv_obj_t *parent) {
 
   // HORA Y TIEMPO
   g = section(page, tr(Str::SectionWeather));
-  s_place_val = nav_row(g, false, PCD_SYM_PIN, kCpu, tr(Str::Location), [](lv_event_t *) { place::open(); });
+  s_place_val = nav_row(g, false, PCD_SYM_PIN, kCpu, tr(Str::Cities), [](lv_event_t *) { cities::open(); });
   r = row(g, true);
   icon(r, PCD_SYM_THERMO, kWarning);
   label(r, tr(Str::Units));
@@ -712,7 +713,14 @@ void on_crypto() {
 void on_place() {
   if (!s_place_val) return;
   const auto &cfg = app::state().settings;
-  set_text(s_place_val, cfg.place_name[0] ? cfg.place_name : tr(Str::LocationNone));
+  char place[56];  // the main place, and how many more cities Today has
+  if (!cfg.place_name[0])
+    snprintf(place, sizeof(place), "%s", tr(Str::LocationNone));
+  else if (cfg.more_count)
+    snprintf(place, sizeof(place), "%s +%d", cfg.place_name, cfg.more_count);
+  else
+    snprintf(place, sizeof(place), "%s", cfg.place_name);
+  set_text(s_place_val, place);
 }
 
 void update() {

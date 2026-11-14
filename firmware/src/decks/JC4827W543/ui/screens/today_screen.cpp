@@ -4,6 +4,8 @@
 //   right: next hours (6 columns: hour, icon, temperature, rain chance)
 //          next days (5 rows: day, icon, rain chance, min, range bar on the week's scale, max)
 // The data source credit goes to the top-bar subtitle.
+// With more than one city (app/cities.h) a horizontal swipe changes city: the clock, the date, the
+// weather and the picture are that city's; the dots at the bottom of the now card say which one.
 // Background: a picture of the current weather, day or night (assets/weather_bg.c), with a cold / warm
 // veil from the temperature; with Settings > Time & weather > Weather background off, a tint from the
 // current condition (warm for sun, indigo at night...).
@@ -16,8 +18,10 @@
 
 #include <initializer_list>
 
+#include "app/cities.h"
 #include "app/state_store.h"
 #include "assets/weather_bg.h"
+#include "ui/cities_ui.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
 
@@ -138,7 +142,7 @@ lv_obj_t *s_now_icon = nullptr;
 lv_obj_t *s_now_temp = nullptr;
 lv_obj_t *s_now_cond = nullptr;
 lv_obj_t *s_now_hilo = nullptr;
-lv_obj_t *s_place = nullptr;
+cities::Pill s_pill;  // which city (one dot per city)
 lv_obj_t *s_stats1 = nullptr;
 lv_obj_t *s_stats2 = nullptr;
 lv_obj_t *s_sun = nullptr;
@@ -254,6 +258,7 @@ lv_obj_t *column(lv_obj_t *parent, int w) {
 }
 
 void open_place_cb(lv_event_t *) { place::open(); }
+void open_cities_cb(lv_event_t *) { cities::open(); }
 
 void build_clock(lv_obj_t *col) {
   lv_obj_t *hero = lv_obj_create(col);
@@ -305,10 +310,10 @@ void one_line(lv_obj_t *l, const lv_font_t *f, int w) {
 void build_now(lv_obj_t *col) {
   s_now = card(col);
   lv_obj_set_flex_grow(s_now, 1);
-  // The whole card opens the city search (the place name is in the top bar).
+  // The whole card opens the Cities sheet (the city's name is in the top bar too).
   lv_obj_add_flag(s_now, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_color(s_now, c(kSurfaceHi), LV_STATE_PRESSED);
-  lv_obj_add_event_cb(s_now, open_place_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_add_event_cb(s_now, open_cities_cb, LV_EVENT_CLICKED, nullptr);
   s_now_icon = make_label(s_now, font_value(), kMuted, PCD_SYM_CLOUD);
   lv_obj_align(s_now_icon, LV_ALIGN_TOP_LEFT, 0, 0);
   s_now_temp = make_label(s_now, font_value(), kText, "--°");
@@ -335,10 +340,12 @@ void build_now(lv_obj_t *col) {
   lv_obj_set_style_text_align(s_sun, LV_TEXT_ALIGN_RIGHT, 0);
   lv_obj_set_width(s_sun, 54);
   lv_obj_align(s_sun, LV_ALIGN_TOP_RIGHT, 0, 97);
-  // The place, quietly at the bottom (the card opens the city search).
-  s_place = make_label(s_now, font_tiny(), kMuted, "");
-  one_line(s_place, font_tiny(), kNowInner);
-  lv_obj_align(s_place, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+  // The city at the bottom, one dot per city on the right. The card is the button; how far ahead
+  // that city's clock is goes to the top bar, where there is room.
+  cities::pill_create(s_pill, s_now, font_tiny(), false, kNowInner, 5);
+  s_pill.offset = false;
+  lv_obj_clear_flag(s_pill.root, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_align(s_pill.root, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 }
 
 void build_hours(lv_obj_t *col) {
@@ -419,8 +426,6 @@ void fill_now(const telemetry::Weather &w, bool data, const char *status) {
   } else {
     set_text(s_now_hilo, "");
   }
-  snprintf(b, sizeof(b), PCD_SYM_PIN " %s", cfg.place_name);
-  set_text(s_place, b);
   show(s_stats1, data);
   show(s_stats2, data);
   show(s_sun, data);
@@ -448,7 +453,7 @@ void fill_now(const telemetry::Weather &w, bool data, const char *status) {
   if (w.sunrise[0] && w.sunset[0]) {
     struct tm t;
     char now[6] = "";
-    if (app::local_time(t)) snprintf(now, sizeof(now), "%02d:%02d", t.tm_hour, t.tm_min);
+    if (app::city_time(app::today_city(), t)) snprintf(now, sizeof(now), "%02d:%02d", t.tm_hour, t.tm_min);
     const bool day = now[0] && strcmp(now, w.sunrise) >= 0 && strcmp(now, w.sunset) < 0;
     snprintf(b, sizeof(b), "%s %s", day ? PCD_SYM_MOON : PCD_SYM_SUN, day ? w.sunset : w.sunrise);
   }
@@ -573,25 +578,36 @@ lv_obj_t *create(lv_obj_t *parent) {
   s_right = column(s_cols, kRightW);
   build_hours(s_right);
   build_days(s_right);
+  cities::attach_swipe(s_page);
   update();
-  tick();
   return s_page;
 }
 
 void update() {
   if (!s_page) return;
-  const auto &st = app::state();
-  const bool has_place = st.settings.place_name[0] != '\0';
-  const bool data = has_place && st.weather.ok;
+  // The city Today shows (app/cities.h): its forecast, its name, its clock.
+  const int city = app::today_city();
+  const telemetry::Weather &wx = app::city_weather(city);
+  const char *err = app::city_error(city);
+  const bool has_place = app::city_count() > 0;
+  const bool data = has_place && wx.ok;
+  cities::pill_update(s_pill);
+  tick();
   // No place yet: the clock stays, the call to action replaces "now" and the forecast.
   show(s_cta, !has_place);
   show(s_now, has_place);
   show(s_right, data);
   if (current_page() == Page::Today) {
-    char sub[80];
+    char sub[128], off[40] = "";
+    int minutes = 0;
+    if (city > 0 && app::city_offset(city, minutes)) {  // another city: how far ahead its clock is
+      char o[28];
+      cities::fmt_offset(o, sizeof(o), minutes);
+      snprintf(off, sizeof(off), "  ·  %s", o);
+    }
     if (has_place)
-      snprintf(sub, sizeof(sub), PCD_SYM_PIN " %s%s%s", st.settings.place_name, data ? "  ·  " : "",
-               data ? tr(Str::WeatherSource) : "");
+      snprintf(sub, sizeof(sub), PCD_SYM_PIN " %s%s%s%s", app::city_name(city), off, data && !off[0] ? "  ·  " : "",
+               data && !off[0] ? tr(Str::WeatherSource) : "");
     set_subtitle(has_place ? sub : nullptr);
   }
   if (!has_place) {
@@ -599,19 +615,19 @@ void update() {
     apply_tint(0);
     return;
   }
-  const char *status = !strcmp(st.weather_error, "pc_app_old") ? tr(Str::WeatherOldApp)
-                       : st.weather_error[0]                    ? tr(Str::WeatherFailed)
-                       : !app::data_online()                    ? tr(Str::WeatherOffline)
-                                                                : tr(Str::WeatherLoading);
-  fill_now(st.weather, data, status);
+  const char *status = !strcmp(err, "pc_app_old") ? tr(Str::WeatherOldApp)
+                       : err[0]                    ? tr(Str::WeatherFailed)
+                       : !app::data_online()       ? tr(Str::WeatherOffline)
+                                                   : tr(Str::WeatherLoading);
+  fill_now(wx, data, status);
   if (!data) {
     apply_photo(nullptr);
     apply_tint(0);
     return;
   }
-  if (!apply_photo(&st.weather)) apply_tint(tint(kind(st.weather.code), st.weather.day));
-  fill_hours(st.weather);
-  fill_days(st.weather);
+  if (!apply_photo(&wx)) apply_tint(tint(kind(wx.code), wx.day));
+  fill_hours(wx);
+  fill_days(wx);
 }
 
 const char *weather_icon(int code, bool day) { return icon(kind(code), day); }
@@ -632,14 +648,15 @@ void tick() {
   if (!s_time) return;
   struct tm t;
   const auto &cfg = app::state().settings;
-  if (!app::local_time(t)) {
+  const int city = app::today_city();  // the clock is the shown city's
+  if (!app::city_time(city, t)) {
     set_text(s_time, "--:--");
     set_text(s_ampm, "");
     set_text(s_date, "");
     s_last_min = -1;
     return;
   }
-  const int stamp = t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min;
+  const int stamp = (t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min) * storage::kMaxCities + city;
   if (stamp == s_last_min && cfg.clock_12h == s_last_12h) return;
   s_last_min = stamp;
   s_last_12h = cfg.clock_12h;

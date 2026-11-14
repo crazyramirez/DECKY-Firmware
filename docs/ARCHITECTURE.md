@@ -63,6 +63,17 @@ byte order from these same headers.
 wording — a shorter label for a narrow panel, a hint naming its own buttons — returns it from
 `ui::deck_tr()` in its `ui/i18n_deck.cpp`; every other key keeps the shared text.
 
+### Today's cities
+
+Today shows one city at a time out of up to six: the main place (`settings.place_*`, which also
+sets the clock without a PC and feeds the screensaver) plus `settings.more_cities` (NVS blob
+`cities`). The model is `src/core/app/cities.{h,cpp}`: list, forecast and local time per city, add /
+remove / make main, the city Today shows. The network task keeps one forecast slot per city and
+files each answer under its coordinates. The shared UI is `src/core/ui/cities_ui.h`: the city pill
+and the swipe (`city_pill.cpp`) and the Cities sheet (`cities_sheet.cpp`). A deck only supplies the
+sheet's metrics and fonts (`ui/screens/cities_layout.cpp`), places the pill on its Today page and
+reads the shown city through `app::today_city()` / `city_weather()` / `city_time()`.
+
 ## Runtime
 
 ```

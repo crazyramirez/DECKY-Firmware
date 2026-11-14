@@ -6,6 +6,7 @@
 #include <ESPmDNS.h>
 #include <WebSocketsClient.h>
 #include <WiFi.h>
+#include <math.h>
 #include <string.h>
 
 #include "app/app_controller.h"
@@ -72,14 +73,33 @@ constexpr uint32_t kArtGraceMs = 2500;
 constexpr uint32_t kArtRetryMs = 5000;
 void check_art(uint32_t wanted);
 
-// Weather: place set by the UI (under s_mux); the forecast is asked for on each connection and then
-// every 10 min (every 30 s until the first answer). The agent accepts one weather message a second.
-bool s_place_set = false;
-float s_place_lat = 0, s_place_lon = 0;
-volatile bool s_weather_force = false;
-bool s_weather_ok = false;     // got a forecast in this session
-uint32_t s_weather_at = 0;     // last weather.request sent (0 = never in this session)
+// Weather: the places set by the UI (the main one first, then the other cities of Today), under
+// s_mux. Each forecast is asked for on each connection and then every 10 min (every 30 s until its
+// first answer); the agent accepts one weather message a second, so they go out one at a time.
+struct WxSlot {
+  float lat = 0, lon = 0;
+  bool force = false;     // ask as soon as allowed (new place, request_weather())
+  bool ok = false;        // PC app: answered in this session
+  uint32_t asked_at = 0;  // PC app: last weather.request sent (millis | 1; 0 = never in this session)
+  uint32_t rx_at = 0;     // last forecast from either source (millis | 1; 0 = none yet)
+  uint32_t web_at = 0;    // last direct attempt (millis | 1)
+};
+WxSlot s_wx[kMaxWeatherPlaces];
+int s_wx_n = 0;
+float s_wx_asked_lat = NAN, s_wx_asked_lon = NAN;  // place of the last weather.request (net task only)
 uint32_t s_weather_msg_at = 0; // last weather message of any kind
+
+// The PC app and Open-Meteo answer with the coordinates rounded to 0.01 degrees.
+bool same_place(float lat_a, float lon_a, float lat_b, float lon_b) {
+  return fabsf(lat_a - lat_b) <= 0.011f && fabsf(lon_a - lon_b) <= 0.011f;
+}
+
+// Slot of a place; call with s_mux taken. nullptr: the list changed meanwhile.
+WxSlot *wx_slot(float lat, float lon) {
+  for (int i = 0; i < s_wx_n; i++)
+    if (same_place(s_wx[i].lat, s_wx[i].lon, lat, lon)) return &s_wx[i];
+  return nullptr;
+}
 constexpr uint32_t kWeatherEveryMs = 10 * 60 * 1000;
 constexpr uint32_t kWeatherRetryMs = 30 * 1000;
 constexpr uint32_t kWeatherGapMs = 1100;
@@ -122,8 +142,6 @@ constexpr uint32_t kChartTimeoutMs = 10000;
 // No PC app connected: weather, city search and crypto come straight from the internet
 // (network/web_source), with the same refresh periods. The PC app takes over when it connects.
 bool s_agent_paused = false;  // USB console "nopc 1": behave as if no PC were paired (tests)
-uint32_t s_wx_rx_at = 0;      // last forecast from either source (millis, 0 = none yet)
-uint32_t s_web_wx_at = 0;     // last direct forecast attempt
 bool s_web_cr_ok = false;     // the last direct price refresh worked
 bool s_web_enrich = false;    // sparklines / market caps / global / fear & greed may be due
 bool s_web_dirty = false;     // enrich() changed the cache since the market was last posted
@@ -342,13 +360,23 @@ void handle_text(const uint8_t *payload, size_t len) {
         post_link(app::LinkState::Unauthorized);
       }
       break;
-    case proto::MsgType::WeatherData:
-      s_weather_ok = s_msg.weather.ok;
-      if (s_msg.weather.ok) s_wx_rx_at = millis() | 1;
+    case proto::MsgType::WeatherData: {
+      telemetry::Weather &w = s_msg.weather;
+      if (!telemetry::has(w.lat) || !telemetry::has(w.lon)) {  // an error names no place: the last one asked
+        w.lat = s_wx_asked_lat;
+        w.lon = s_wx_asked_lon;
+      }
+      portENTER_CRITICAL(&s_mux);
+      if (WxSlot *s = wx_slot(w.lat, w.lon)) {
+        s->ok = w.ok;
+        if (w.ok) s->rx_at = millis() | 1;
+      }
+      portEXIT_CRITICAL(&s_mux);
       e.type = app::EventType::WeatherData;
-      e.weather = s_msg.weather;
+      e.weather = w;
       app::bus::post(e, 20);
       break;
+    }
     case proto::MsgType::WeatherResults:
       portENTER_CRITICAL(&s_mux);
       if (s_place_state == kPlacesSearching) {
@@ -608,22 +636,37 @@ void step_crypto() {
   send_json(s_cr_tx, proto::build_crypto_request(s_cr_tx, sizeof(s_cr_tx), pairs, ids, k, cur));
 }
 
-// Forecast without the PC app: every 10 min (a minute after a failure), or at once for a new place.
+// Forecasts without the PC app: each place every 10 min (a minute after a failure), or at once for a
+// new one. One request per call (each blocks for about a second).
 void step_weather_web(uint32_t now) {
+  bool found = false;
+  float lat = 0, lon = 0;
   portENTER_CRITICAL(&s_mux);
-  const bool set = s_place_set;
-  const float lat = s_place_lat, lon = s_place_lon;
+  for (int i = 0; i < s_wx_n && !found; i++) {
+    WxSlot &s = s_wx[i];
+    const bool stale = !s.rx_at || now - s.rx_at >= kWeatherEveryMs;
+    const bool may = !s.web_at || now - s.web_at >= kWebWeatherRetryMs;
+    if (!s.force && !(stale && may)) continue;
+    s.force = false;
+    s.web_at = now | 1;
+    lat = s.lat;
+    lon = s.lon;
+    found = true;
+  }
   portEXIT_CRITICAL(&s_mux);
-  if (!set) return;
-  const bool stale = !s_wx_rx_at || now - s_wx_rx_at >= kWeatherEveryMs;
-  const bool may = !s_web_wx_at || now - s_web_wx_at >= kWebWeatherRetryMs;
-  if (!s_weather_force && !(stale && may)) return;
-  s_weather_force = false;
-  s_web_wx_at = now | 1;
+  if (!found) return;
   telemetry::Weather w;
   web::forecast(lat, lon, w);
-  if (w.ok) s_wx_rx_at = millis() | 1;
-  ESP_LOGI(TAG, "weather (direct): %s", w.ok ? "ok" : w.error);
+  if (w.ok) {
+    portENTER_CRITICAL(&s_mux);
+    if (WxSlot *s = wx_slot(lat, lon)) s->rx_at = millis() | 1;
+    portEXIT_CRITICAL(&s_mux);
+  } else {  // the app files the failure under its place
+    w.lat = lat;
+    w.lon = lon;
+  }
+  ESP_LOGI(TAG, "weather (direct) %.2f,%.2f: %s", static_cast<double>(lat), static_cast<double>(lon),
+           w.ok ? "ok" : w.error);
   app::Event e;
   e.type = app::EventType::WeatherData;
   e.weather = w;
@@ -673,24 +716,32 @@ void step_weather() {
       app::bus::post(e, 20);
     }
   }
-  // Forecast for the chosen place.
+  // Forecasts for the chosen places: the first one that is due.
   if (!live) {
     if (web_ready()) step_weather_web(now);
     return;
   }
+  if (now - s_weather_msg_at < kWeatherGapMs) return;
+  bool found = false;
+  float lat = 0, lon = 0;
   portENTER_CRITICAL(&s_mux);
-  const bool set = s_place_set;
-  const float lat = s_place_lat, lon = s_place_lon;
-  portEXIT_CRITICAL(&s_mux);
-  if (!set || now - s_weather_msg_at < kWeatherGapMs) return;
-  const uint32_t every = s_weather_ok ? kWeatherEveryMs : kWeatherRetryMs;
-  if (s_weather_force || !s_weather_at || now - s_weather_at >= every) {
-    s_weather_force = false;
-    s_weather_at = now;
-    s_weather_msg_at = now;
-    char buf[128];
-    send_json(buf, proto::build_weather_request(buf, sizeof(buf), lat, lon));
+  for (int i = 0; i < s_wx_n && !found; i++) {
+    WxSlot &s = s_wx[i];
+    const uint32_t every = s.ok ? kWeatherEveryMs : kWeatherRetryMs;
+    if (!s.force && s.asked_at && now - s.asked_at < every) continue;
+    s.force = false;
+    s.asked_at = now | 1;
+    lat = s.lat;
+    lon = s.lon;
+    found = true;
   }
+  portEXIT_CRITICAL(&s_mux);
+  if (!found) return;
+  s_weather_msg_at = now;
+  s_wx_asked_lat = lat;
+  s_wx_asked_lon = lon;
+  char buf[128];
+  send_json(buf, proto::build_weather_request(buf, sizeof(buf), lat, lon));
 }
 
 void check_art(uint32_t wanted) {
@@ -745,8 +796,12 @@ void on_ws_event(WStype_t type, uint8_t *payload, size_t length) {
       s_caps_received = false;
       s_authenticated = false;
       s_art_have = 0;  // a new session gets the current cover again
-      s_weather_ok = false;
-      s_weather_at = 0;
+      portENTER_CRITICAL(&s_mux);
+      for (WxSlot &s : s_wx) {  // the next session asks for every forecast again
+        s.ok = false;
+        s.asked_at = 0;
+      }
+      portEXIT_CRITICAL(&s_mux);
       s_cr_answered = false;
       s_cr_old_agent = false;
       s_cr_at = 0;
@@ -1240,16 +1295,30 @@ void reconfigure() { s_reconfigure = true; }
 void request_scan() { s_scan_requested = true; }
 void request_discovery() { s_discover_requested = true; }
 
-void set_weather_place(bool set, float lat, float lon) {
+void set_weather_places(const WxPlace *places, int n) {
+  if (n > kMaxWeatherPlaces) n = kMaxWeatherPlaces;
+  if (n < 0) n = 0;
+  WxSlot next[kMaxWeatherPlaces];
   portENTER_CRITICAL(&s_mux);
-  s_place_set = set;
-  s_place_lat = lat;
-  s_place_lon = lon;
+  for (int i = 0; i < n; i++) {
+    // A place that was already there keeps its timers (reordering or removing another one does not
+    // ask for it again); a new one is asked for at once.
+    const WxSlot *old = wx_slot(places[i].lat, places[i].lon);
+    if (old) next[i] = *old;
+    else next[i].force = true;
+    next[i].lat = places[i].lat;
+    next[i].lon = places[i].lon;
+  }
+  for (int i = 0; i < kMaxWeatherPlaces; i++) s_wx[i] = i < n ? next[i] : WxSlot{};
+  s_wx_n = n;
   portEXIT_CRITICAL(&s_mux);
-  s_weather_force = true;
 }
 
-void request_weather() { s_weather_force = true; }
+void request_weather() {
+  portENTER_CRITICAL(&s_mux);
+  for (int i = 0; i < s_wx_n; i++) s_wx[i].force = true;
+  portEXIT_CRITICAL(&s_mux);
+}
 
 void set_crypto(const int8_t *coins, int n, const char *cur, uint32_t period_ms, bool active) {
   if (n > crypto::kMaxCoins) n = crypto::kMaxCoins;

@@ -74,7 +74,8 @@ def build(deck, lang):
         cpp_src += glob.glob(os.path.join(root, "ui", "*.cpp"))
         cpp_src += glob.glob(os.path.join(root, "ui", "screens", "*.cpp"))
         cpp_src += glob.glob(os.path.join(root, "ui", "theme", "*.cpp"))
-    for rel in ("crypto/watchlist.cpp", "crypto/crypto_store.cpp", "app/state_store.cpp", "alerts/thermal_alerts.cpp"):
+    for rel in ("crypto/watchlist.cpp", "crypto/crypto_store.cpp", "app/state_store.cpp", "app/cities.cpp",
+                "alerts/thermal_alerts.cpp"):
         hit = [p for p in (os.path.join(core, rel), os.path.join(own, rel)) if os.path.exists(p)]
         if not hit:
             sys.exit("missing %s" % rel)

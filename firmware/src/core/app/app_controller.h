@@ -24,7 +24,9 @@ void set_auto_sleep(uint8_t minutes);  // 0 (never), 1, 2, 5, 10; persisted
 void set_screensaver(const storage::Screensaver &ss);  // validated, persisted
 void set_tab_order(const uint8_t order[storage::kTabCount]);  // persisted, nav reordered at once
 void set_tab_hidden(uint8_t tab, bool hidden);  // persisted, nav updated at once
-void set_place(const char *name, float lat, float lon);  // weather place; persisted, refetches
+// Main weather place ("" = none); persisted, refetches. More cities for Today: app/cities.h (where this
+// one is implemented too).
+void set_place(const char *name, float lat, float lon);
 void set_temp_f(bool fahrenheit);
 void set_clock_12h(bool twelve);
 void set_today_bg(bool on);  // Today: weather picture behind the page

@@ -8,11 +8,13 @@
 #include <time.h>
 
 #include "app/app_controller.h"
+#include "app/cities.h"
 #include "app/state_store.h"
 #include "crypto/coin_catalog.h"
 #include "crypto/crypto_store.h"
 #include "network/net_task.h"
 #include "storage/net_store.h"
+#include "ui/cities_ui.h"
 #include "ui/i18n.h"
 #include "ui/screen_cover.h"
 #include "ui/theme/theme.h"
@@ -77,6 +79,20 @@ static void top_mark() { g_top_base = lv_obj_get_child_cnt(lv_layer_top()); }
 static void top_clear() {
   while (lv_obj_get_child_cnt(lv_layer_top()) > g_top_base) lv_obj_del(lv_obj_get_child(lv_layer_top(), -1));
   run(50);
+}
+
+// A finger dragged dx pixels sideways (fast enough for LVGL to call it a gesture).
+static void swipe(int x, int y, int dx) {
+  g_pt.x = x;
+  g_pt.y = y;
+  g_pressed = true;
+  run(40);
+  for (int s = 1; s <= 8; s++) {
+    g_pt.x = x + dx * s / 8;
+    run(30);
+  }
+  g_pressed = false;
+  run(150);
 }
 
 static void tap(int x, int y) {
@@ -369,6 +385,115 @@ int main(int argc, char **argv) {
   ui::pair::dev_open_manual();
   shot("16_pair_manual");
   top_clear();
+  // ---- More cities for Today (app/cities.h): the main place with its dots, another city (its clock,
+  // weather and picture), a swipe to the next one, and the Cities sheet (list, edit mode, add a city).
+  {
+    auto &st = app::state();
+    struct More {
+      const char *name;
+      float lat, lon;
+      int tz, code;
+      bool day;
+      float temp;
+    };
+    const More kMore[] = {{"Tokio", 35.69f, 139.69f, 540, 61, false, 9.0f},
+                          {"Nueva York", 40.71f, -74.01f, -300, 0, true, 4.0f}};
+    for (const More &m : kMore) {
+      app::add_city(m.name, m.lat, m.lon);
+      telemetry::Weather w = st.weather;  // the same forecast shape, its own conditions
+      w.lat = m.lat;
+      w.lon = m.lon;
+      w.tz_min = static_cast<int16_t>(m.tz);
+      w.code = static_cast<int8_t>(m.code);
+      w.day = m.day;
+      w.temp = m.temp;
+      w.feels = m.temp - 2.0f;
+      w.today_max = static_cast<int8_t>(m.temp + 3);
+      w.today_min = static_cast<int8_t>(m.temp - 4);
+      app::ingest_weather(w, g_ms);
+    }
+    ui::navigate(ui::Page::Today);
+    ui::on_weather();
+    shot("30_today_cities");
+    app::show_city(1);
+    shot("31_today_city");
+    // A swipe to the left goes to the next city, one to the right comes back; neither taps anything.
+    const int sx = ui::theme::kScreenW * 3 / 5, sy = ui::theme::kTopBarH + 84, sd = ui::theme::kScreenW / 4;
+    bool bad = false;
+    swipe(sx, sy, -sd);
+    if (app::today_city() != 2) {
+      printf("FAIL cities: a swipe to the left did not show the next city (city %d)\n", app::today_city());
+      bad = true;
+    }
+    shot("32_today_swiped");
+    swipe(sx, sy, -sd);  // already the last one: it stays
+    swipe(sx - sd, sy, sd);
+    if (app::today_city() != 1) {
+      printf("FAIL cities: a swipe to the right did not come back (city %d)\n", app::today_city());
+      bad = true;
+    }
+    if (ui::cities::active()) {
+      printf("FAIL cities: a swipe opened the Cities sheet\n");
+      bad = true;
+      ui::cities::close();
+      run(50);
+    }
+    printf("cities swipe: %s\n", bad ? "FAIL" : "ok");
+    ui::cities::open();
+    shot("33_cities");
+    ui::cities::dev_edit(true);
+    shot("34_cities_edit");
+    // "Make main": Tokio trades places with Madrid, Today keeps showing Tokio (now the main place).
+    app::make_main_city(1);
+    if (strcmp(app::city_name(0), "Tokio") != 0 || strcmp(app::city_name(1), "Madrid") != 0 || app::today_city() != 0)
+      printf("FAIL cities: make main -> '%s', '%s', shown %d\n", app::city_name(0), app::city_name(1), app::today_city());
+    app::make_main_city(1);
+    app::show_city(0);
+    ui::cities::dev_edit(false);
+    // The full list with long names and the 12 h clock: nothing may run into its neighbour.
+    {
+      const More kLong[] = {{"San Francisco", 37.77f, -122.42f, -480, 45, true, 14.0f},
+                            {"Ciudad de México", 19.43f, -99.13f, -360, 95, true, 22.0f},
+                            {"Buenos Aires", -34.61f, -58.38f, -180, 3, true, -12.0f}};
+      for (const More &m : kLong) {
+        app::add_city(m.name, m.lat, m.lon);
+        telemetry::Weather w = st.weather;
+        w.lat = m.lat;
+        w.lon = m.lon;
+        w.tz_min = static_cast<int16_t>(m.tz);
+        w.code = static_cast<int8_t>(m.code);
+        w.day = m.day;
+        w.temp = m.temp;
+        app::ingest_weather(w, g_ms);
+      }
+      if (app::add_city("Sídney", -33.87f, 151.21f) != -1) printf("FAIL cities: a seventh city was accepted\n");
+      st.settings.clock_12h = true;
+      ui::on_weather();
+      shot("36_cities_full");
+      ui::cities::dev_edit(true);
+      shot("37_cities_full_edit");
+      ui::cities::close();
+      run(50);
+      app::show_city(4);
+      shot("38_today_full");
+      st.settings.clock_12h = false;
+      app::remove_city(5);
+      app::remove_city(4);
+      app::remove_city(3);
+      if (app::city_count() != 3 || app::today_city() != 0)
+        printf("FAIL cities: after removing the shown city, %d left, shown %d\n", app::city_count(), app::today_city());
+      ui::cities::open();
+    }
+    ui::place::open(ui::place::Mode::Add);
+    shot("35_city_add");
+    ui::cities::close();
+    run(50);
+    // Back to one city for the rest of the scenes.
+    app::remove_city(2);
+    app::remove_city(1);
+    if (app::city_count() != 1 || strcmp(app::city_name(0), "Madrid") != 0)
+      printf("FAIL cities: after removing two, %d left, main '%s'\n", app::city_count(), app::city_name(0));
+  }
   ui::navigate(ui::Page::Settings);
   run(100);
   ui::place::dev_search("");

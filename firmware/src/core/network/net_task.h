@@ -67,10 +67,15 @@ void start_pairing(const PcEntry &pc, const char *code);  // async; posts PairDo
 void forget_pc();                               // drop token + agent address (needs re-pairing)
 
 // Weather (Open-Meteo): through the PC app when it is connected (agent >= 0.5), straight from the
-// internet otherwise (web_source). The forecast for the chosen place is asked for on every connection
-// and then every 10 min; results arrive as app::EventType::WeatherData.
-void set_weather_place(bool set, float lat, float lon);  // also forces a fresh request
-void request_weather();                                  // force a fresh request
+// internet otherwise (web_source). The forecast for each chosen place (the main one first, then the
+// other cities of Today) is asked for on every connection and then every 10 min; results arrive as
+// app::EventType::WeatherData, each with its place's coordinates (rounded to 0.01 degrees).
+constexpr int kMaxWeatherPlaces = 6;
+struct WxPlace {
+  float lat = 0, lon = 0;
+};
+void set_weather_places(const WxPlace *places, int n);  // new places are asked for at once
+void request_weather();                                 // fresh forecasts for all of them
 constexpr int kPlacesSearching = -2;
 constexpr int kPlacesOffline = -3;  // no Wi-Fi (without a PC the deck searches Open-Meteo itself)
 constexpr int kPlacesFailed = -1;   // the geocoding service could not be reached

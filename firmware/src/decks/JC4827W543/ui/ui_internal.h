@@ -159,7 +159,8 @@ void on_rebuild();  // UI rebuilt (language change): re-create the sheet at the 
 void tick();        // every second: live status, return from the Wi-Fi / Pair pages
 }
 namespace place {
-void open();        // city search sheet (top layer)
+enum class Mode : uint8_t { Main, Add };  // choose the main place / add a city to Today
+void open(Mode mode = Mode::Main);  // city search sheet (top layer)
 void on_results();  // net::place_results() changed
 void dev_search(const char *query);  // developer aid: open the sheet and search (USB console)
 }

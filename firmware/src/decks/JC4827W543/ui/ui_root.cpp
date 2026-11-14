@@ -17,6 +17,7 @@
 #include "board/battery.h"
 #include "ui/status_tap.h"
 #include "ui/ui.h"
+#include "ui/cities_ui.h"
 #include "ui/ui_internal.h"
 
 namespace ui {
@@ -691,6 +692,7 @@ void confirm(const char *text, const char *ok_label, uint32_t ok_color, void (*o
 
 void on_weather() {
   today::update();
+  cities::on_weather();
   settings::on_place();
   screensaver::on_data();
 }
@@ -714,6 +716,7 @@ void tick_1s() {
   update_deck_battery();
   settings::tick();
   today::tick();
+  cities::tick();
   crypto_ui::tick();
   crypto_detail::tick();
   setup::tick();

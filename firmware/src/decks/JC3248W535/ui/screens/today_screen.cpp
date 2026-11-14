@@ -1,6 +1,7 @@
 // Today: a glanceable home screen.
 //   clock (72 px) + date
-//   now:        condition icon, temperature, condition, max/min, place · humidity, wind, feels like
+//   now:        condition icon, temperature, condition, max/min, the city (one dot per city; tap: the
+//               Cities sheet) · humidity, wind, feels like
 //   next hours: 6 columns (hour, icon, temperature, rain chance)
 //   next days:  5 rows (day, icon, rain chance, min, range bar on the week's scale, max)
 //   sunrise / sunset · data source
@@ -8,6 +9,8 @@
 // veil from the temperature; with Settings > Time & weather > Weather background off, a tint from the
 // current condition (warm for sun, indigo at night...).
 // Without a place it shows a call to action that opens the city search.
+// With more than one city (app/cities.h) a horizontal swipe changes city: the clock, the date, the
+// weather and the picture are that city's.
 
 #include <math.h>
 #include <stdio.h>
@@ -16,8 +19,10 @@
 
 #include <initializer_list>
 
+#include "app/cities.h"
 #include "app/state_store.h"
 #include "assets/weather_bg.h"
+#include "ui/cities_ui.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
 
@@ -138,7 +143,7 @@ lv_obj_t *s_now_icon = nullptr;
 lv_obj_t *s_now_temp = nullptr;
 lv_obj_t *s_now_cond = nullptr;
 lv_obj_t *s_now_hilo = nullptr;
-lv_obj_t *s_place = nullptr;
+cities::Pill s_pill;  // which city (one dot per city)
 lv_obj_t *s_stats = nullptr;
 lv_obj_t *s_stat[3] = {};
 // hours / days
@@ -301,14 +306,9 @@ void build_now(lv_obj_t *page) {
   lv_obj_align(s_now_cond, LV_ALIGN_TOP_RIGHT, 0, 2);
   s_now_hilo = make_label(s_now, font_small(), kMuted, "");
   lv_obj_align(s_now_hilo, LV_ALIGN_TOP_RIGHT, 0, 26);
-  // Place: tap to change.
-  s_place = make_label(s_now, font_small(), kMuted, "");
-  lv_obj_set_width(s_place, kInner);
-  lv_label_set_long_mode(s_place, LV_LABEL_LONG_DOT);
-  lv_obj_align(s_place, LV_ALIGN_TOP_LEFT, 0, 54);
-  lv_obj_add_flag(s_place, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_ext_click_area(s_place, 10);
-  lv_obj_add_event_cb(s_place, open_place_cb, LV_EVENT_CLICKED, nullptr);
+  // The city and how far ahead its clock is, one dot per city on the right: tap for the Cities sheet.
+  cities::pill_create(s_pill, s_now, font_small(), false, kInner, 6);
+  lv_obj_align(s_pill.root, LV_ALIGN_TOP_LEFT, 0, 54);
   // Divider + stats.
   lv_obj_t *div = lv_obj_create(s_now);
   lv_obj_remove_style_all(div);
@@ -408,8 +408,6 @@ void fill_now(const telemetry::Weather &w, bool data, const char *status) {
   } else {
     set_text(s_now_hilo, "");
   }
-  snprintf(b, sizeof(b), PCD_SYM_PIN "  %s  ·  %s", cfg.place_name, tr(Str::Change));
-  set_text(s_place, b);
   show(s_stats, data);
   if (data) {
     if (w.humidity >= 0)
@@ -561,16 +559,21 @@ lv_obj_t *create(lv_obj_t *parent) {
   lv_label_set_long_mode(s_footer, LV_LABEL_LONG_WRAP);
   lv_obj_set_style_text_align(s_footer, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_style_pad_top(s_footer, 4, 0);
+  cities::attach_swipe(s_page);
   update();
-  tick();
   return s_page;
 }
 
 void update() {
   if (!s_page) return;
-  const auto &st = app::state();
-  const bool has_place = st.settings.place_name[0] != '\0';
-  const bool data = has_place && st.weather.ok;
+  // The city Today shows (app/cities.h): its forecast, its name, its clock.
+  const int city = app::today_city();
+  const telemetry::Weather &wx = app::city_weather(city);
+  const char *err = app::city_error(city);
+  const bool has_place = app::city_count() > 0;
+  const bool data = has_place && wx.ok;
+  cities::pill_update(s_pill);
+  tick();
   show(s_cta, !has_place);
   show(s_now, has_place);
   for (lv_obj_t *o : {s_hours_title, s_hours, s_days_title, s_days}) show(o, data);
@@ -580,24 +583,24 @@ void update() {
     set_text(s_footer, "");
     return;
   }
-  const char *status = !strcmp(st.weather_error, "pc_app_old") ? tr(Str::WeatherOldApp)
-                       : st.weather_error[0]                    ? tr(Str::WeatherFailed)
-                       : !app::data_online()                    ? tr(Str::WeatherOffline)
-                                                                : tr(Str::WeatherLoading);
-  fill_now(st.weather, data, status);
+  const char *status = !strcmp(err, "pc_app_old") ? tr(Str::WeatherOldApp)
+                       : err[0]                    ? tr(Str::WeatherFailed)
+                       : !app::data_online()       ? tr(Str::WeatherOffline)
+                                                   : tr(Str::WeatherLoading);
+  fill_now(wx, data, status);
   if (!data) {
     apply_photo(nullptr);
     apply_tint(0);
     set_text(s_footer, "");
     return;
   }
-  if (!apply_photo(&st.weather)) apply_tint(tint(kind(st.weather.code), st.weather.day));
-  fill_hours(st.weather);
-  fill_days(st.weather);
+  if (!apply_photo(&wx)) apply_tint(tint(kind(wx.code), wx.day));
+  fill_hours(wx);
+  fill_days(wx);
   char b[96];
-  if (st.weather.sunrise[0])
-    snprintf(b, sizeof(b), PCD_SYM_SUN "  %s %s  ·  %s %s\n%s", tr(Str::Sunrise), st.weather.sunrise, tr(Str::Sunset),
-             st.weather.sunset, tr(Str::WeatherSource));
+  if (wx.sunrise[0])
+    snprintf(b, sizeof(b), PCD_SYM_SUN "  %s %s  ·  %s %s\n%s", tr(Str::Sunrise), wx.sunrise, tr(Str::Sunset),
+             wx.sunset, tr(Str::WeatherSource));
   else
     snprintf(b, sizeof(b), "%s", tr(Str::WeatherSource));
   set_text(s_footer, b);
@@ -607,14 +610,15 @@ void tick() {
   if (!s_time) return;
   struct tm t;
   const auto &cfg = app::state().settings;
-  if (!app::local_time(t)) {
+  const int city = app::today_city();  // the clock is the shown city's
+  if (!app::city_time(city, t)) {
     set_text(s_time, "--:--");
     set_text(s_ampm, "");
     set_text(s_date, "");
     s_last_min = -1;
     return;
   }
-  const int stamp = t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min;
+  const int stamp = (t.tm_yday * 1440 + t.tm_hour * 60 + t.tm_min) * storage::kMaxCities + city;
   if (stamp == s_last_min && cfg.clock_12h == s_last_12h) return;
   s_last_min = stamp;
   s_last_12h = cfg.clock_12h;

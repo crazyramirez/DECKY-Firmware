@@ -8,6 +8,7 @@
 #include <time.h>
 #include <lvgl.h>
 
+#include "app/cities.h"
 #include "app/demo_source.h"
 #include "app/event_bus.h"
 #include "app/state_store.h"
@@ -156,24 +157,15 @@ void drain_events(uint32_t now) {
         break;
       }
       case EventType::WeatherData: {
-        AppState &st = state();
-        if (e.weather.ok) {
-          st.weather = e.weather;
-          st.weather_rx_ms = now;
-          st.weather_error[0] = '\0';
-          // No PC clock: the chosen place's UTC offset gives the local time (summer time included).
-          const int16_t tz = e.weather.tz_min;
-          if (tz != telemetry::kNoTz && tz >= -14 * 60 && tz <= 14 * 60 && st.link != LinkState::Online &&
-              st.link != LinkState::Stale && st.settings.utc_offset_min != tz) {
-            st.settings.utc_offset_min = tz;
-            storage::save(st.settings);
-            ESP_LOGI(TAG, "clock: UTC%+d min from the weather place", tz);
-          }
-        } else {
-          strlcpy(st.weather_error, e.weather.error[0] ? e.weather.error : "unavailable", sizeof(st.weather_error));
-        }
-        ESP_LOGI(TAG, "weather %s", e.weather.ok ? "ok" : st.weather_error);
-        ui::on_weather();
+        // Filed under its place (the main one or another city of Today); the main place's UTC offset
+        // also sets the clock while no PC does.
+        const int16_t tz_before = state().settings.utc_offset_min;
+        const int city = ingest_weather(e.weather, now);
+        if (state().settings.utc_offset_min != tz_before)
+          ESP_LOGI(TAG, "clock: UTC%+d min from the weather place", state().settings.utc_offset_min);
+        ESP_LOGI(TAG, "weather %s (%s)", e.weather.ok ? "ok" : (e.weather.error[0] ? e.weather.error : "unavailable"),
+                 city < 0 ? "no such city any more" : city_name(city));
+        if (city >= 0) ui::on_weather();
         break;
       }
       case EventType::PlacesDone:
@@ -305,7 +297,7 @@ void setup() {
 #endif
   net::start();
   net::set_enabled(!st.settings.demo_mode);
-  net::set_weather_place(st.settings.place_name[0] != '\0', st.settings.place_lat, st.settings.place_lon);
+  sync_weather_places();
   crypto_sync();
 
   if (st.settings.demo_mode) demo::start();
@@ -390,18 +382,6 @@ void set_refresh(uint8_t seconds) {
   AppState &st = state();
   st.settings.refresh_s = seconds;
   storage::save(st.settings);
-}
-
-void set_place(const char *name, float lat, float lon) {
-  AppState &st = state();
-  strlcpy(st.settings.place_name, name, sizeof(st.settings.place_name));
-  st.settings.place_lat = lat;
-  st.settings.place_lon = lon;
-  storage::save(st.settings);
-  st.weather = telemetry::Weather{};  // the old place's forecast must not show under the new name
-  st.weather_error[0] = '\0';
-  net::set_weather_place(name[0] != '\0', lat, lon);
-  ui::on_weather();
 }
 
 void set_temp_f(bool f) {

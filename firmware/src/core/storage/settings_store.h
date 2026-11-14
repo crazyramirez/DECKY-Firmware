@@ -31,6 +31,16 @@ struct Screensaver {
   uint8_t dim = 100;        // backlight while showing, % of the normal brightness: 100, 60, 30
 };
 
+// Today: the main place plus more cities (their weather and local time, one swipe away).
+constexpr int kMaxCities = 6;  // the main place included
+constexpr int kMaxMoreCities = kMaxCities - 1;
+constexpr int16_t kCityNoTz = INT16_MIN;
+struct City {
+  char name[40] = "";
+  float lat = 0.0f, lon = 0.0f;
+  int16_t tz_min = kCityNoTz;  // last known UTC offset there (minutes): its clock before a forecast arrives
+};
+
 struct Settings {
   uint8_t brightness = 80;     // %
   Lang lang = Lang::Es;
@@ -46,6 +56,9 @@ struct Settings {
   // Today tab: weather place (chosen with the city search), units and clock format.
   char place_name[40] = "";  // "" = no place chosen
   float place_lat = 0.0f, place_lon = 0.0f;
+  // More cities for Today, after the main place (app/cities.h). Only with a main place.
+  City more_cities[kMaxMoreCities];
+  uint8_t more_count = 0;
   bool temp_f = false;    // °F instead of °C
   bool clock_12h = false; // 12-hour clock instead of 24-hour
   bool today_bg = true;   // Today: picture of the current weather behind the page (else the tint)
