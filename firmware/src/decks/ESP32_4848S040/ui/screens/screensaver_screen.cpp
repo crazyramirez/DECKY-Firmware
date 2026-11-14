@@ -32,6 +32,7 @@
 #include "ui/crypto_fmt.h"
 #include "ui/ui.h"
 #include "ui/battery_badge.h"
+#include "ui/hold_sleep.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
 
@@ -156,6 +157,7 @@ void make_shortcut(lv_obj_t *o, Shortcut to) {
   lv_obj_add_flag(o, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(o, shortcut_cb, LV_EVENT_CLICKED, reinterpret_cast<void *>(to));
   lv_obj_add_event_cb(o, shortcut_cb, LV_EVENT_PRESS_LOST, reinterpret_cast<void *>(to));
+  hold_sleep::attach(o);
 }
 
 // Frosted-glass card, full width: dark translucent fill, hairline light border; a square on the left
@@ -412,6 +414,8 @@ void build() {
   lv_obj_clear_flag(s_root, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_add_event_cb(s_root, close_cb, LV_EVENT_RELEASED, nullptr);
   lv_obj_add_event_cb(s_root, close_cb, LV_EVENT_PRESS_LOST, nullptr);
+  hold_sleep::begin(s_root);  // 2 s anywhere: sleep
+  hold_sleep::attach(s_root);
 
   for (auto &im : s_img) {
     im = lv_img_create(s_root);
@@ -534,6 +538,7 @@ void stop() {
   lv_anim_del(s_img[1], nullptr);
   lv_anim_del(s_content, nullptr);
   lv_anim_del(s_hint, nullptr);
+  hold_sleep::end();
   lv_obj_del_async(s_root);  // may run inside the root's own event
   s_root = nullptr;
   s_img[0] = s_img[1] = nullptr;

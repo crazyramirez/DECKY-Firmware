@@ -62,7 +62,7 @@ void touch_read_cb(lv_indev_drv_t *, lv_indev_data_t *data) {
   touch::Point p;
   const bool down = s_touch_ok && touch::read(p) && p.pressed;
   if (s_screen_off || s_swallow) {
-    if (down && s_screen_off) {
+    if (down && !s_was_pressed && s_screen_off) {  // a new touch: the finger that turned it off (hold on the screensaver) must lift first
       s_screen_off = false;
       s_swallow = true;
       lv_disp_trig_activity(nullptr);

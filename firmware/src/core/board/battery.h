@@ -26,6 +26,16 @@ constexpr bool sensed() { return PCD_PIN_BAT_ADC >= 0; }
 void init();
 void poll(uint32_t now_ms);  // UI task, cheap; samples every second
 State state();
+// Developer aid (USB console "batlog"): the last readings, one every 5 s (about 10 minutes), kept in
+// RAM while the deck runs: unplug, wait, plug back in and read what the deck saw on its battery.
+struct LogEntry {
+  uint32_t t_s = 0;     // uptime, seconds
+  uint16_t node_mv = 0; // filtered node voltage
+  uint16_t raw_mv = 0;  // this second's node reading (unfiltered)
+  uint8_t source = 0;   // Source shown
+  bool usb_host = false;
+};
+int log_entries(LogEntry *out, int max);  // oldest first
 const char *source_name(Source s);
 
 }  // namespace battery

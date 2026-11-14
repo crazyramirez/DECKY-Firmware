@@ -360,7 +360,7 @@ const Entry kTable[] = {
     {"Cripto", "Crypto"},
     {"Brillo", "Brightness"},
     {"Vista previa", "Preview"},
-    {"Mientras está activado sustituye al reposo automático: la pantalla no se apaga. Toca la pantalla o pulsa BOOT para salir.", "While it is on it replaces auto sleep: the screen never turns off. Touch the screen or press BOOT to leave it."},
+    {"Mientras está activado sustituye al reposo automático: la pantalla no se apaga. Toca la pantalla o pulsa BOOT para salir; mantén el dedo 2 s para el reposo.", "While it is on it replaces auto sleep: the screen never turns off. Touch the screen or press BOOT to leave it; hold a finger on it for 2 s to sleep."},
     {"Fondo del salvapantallas", "Screensaver background"},
     {"Toca una imagen para elegirla", "Tap an image to choose it"},
     {"sustituido por el salvapantallas", "replaced by the screensaver"},

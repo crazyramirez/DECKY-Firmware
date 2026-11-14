@@ -782,7 +782,9 @@ void tick() {
     snprintf(buf, sizeof(buf), "--");
   set_text(s_info[2], buf);
   const battery::State bat = battery::state();
-  if (bat.source == battery::Source::Usb)
+  if (bat.source == battery::Source::Usb && battery::sensed() && bat.mv > 0)  // the voltage too: shows what the deck measures
+    snprintf(buf, sizeof(buf), "%s %s · %.2f V", LV_SYMBOL_CHARGE, tr(Str::DeckOnUsb), static_cast<double>(bat.mv) / 1000.0);
+  else if (bat.source == battery::Source::Usb)
     snprintf(buf, sizeof(buf), "%s %s", LV_SYMBOL_CHARGE, tr(Str::DeckOnUsb));
   else if (bat.source == battery::Source::Battery)
     snprintf(buf, sizeof(buf), "%d %% · %.2f V", bat.pct, static_cast<double>(bat.mv) / 1000.0);

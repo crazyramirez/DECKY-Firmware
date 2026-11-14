@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.4.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.5.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -60,7 +60,8 @@ The same features on every deck; each screen is laid out for its panel (see the 
   pixels every minute against burn-in. **Double-tap the status corner** (battery / LED, top right)
   to start it at once. On a deck running on its battery (JC3248W535), a small battery in the top
   right corner shows the charge, with or without the percentage, or not at all (*Settings ›
-  Screensaver › Battery*); on USB it never shows.
+  Screensaver › Battery*); on USB it never shows. **Hold a finger on it for 2 s** to put the deck to
+  sleep (a ring fills while you hold; lift the finger to cancel).
 - **Settings** — Wi-Fi and pairing, the setup assistant, screen off and sleep, lock / restart /
   shut down the PC (restart and shut down only if allowed in DECKY Agent, always confirmed),
   brightness, language (Español / English), refresh rate, screensaver, place, °C / °F, 24 / 12 h,
@@ -241,6 +242,7 @@ Connect the deck by USB and open `pio device monitor -e <KEY>` (115200). Type `h
 | `place <lat> <lon> <name>` · `place off` · `weather` | Set / clear the main weather place · show weather and clock state (every city) |
 | `city add <lat> <lon> <name>` · `city del <n>` · `city main <n>` · `city show <n>` | More cities for Today: add · remove · make it the main one · show it on Today |
 | `screen on\|off` · `saver [now\|off\|bg <n>]` | Screen on / off · show or close the screensaver, pick its wallpaper (0..7) |
+| `batlog` | The deck's battery readings over the last ~10 minutes, every 5 s (voltage, USB or battery) |
 | `shot` | Screenshot over USB (`firmware/tools/screenshot.py` turns it into a PNG) |
 | `demo on\|off` · `nopc 1\|0` | Sample data instead of the PC · ignore the paired PC until reboot (developer aids) |
 | `reboot` | Restart the deck |

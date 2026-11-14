@@ -6,6 +6,22 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.5.0 — Hold the screensaver to sleep
+
+- **Every deck: hold a finger anywhere on the screensaver for 2 s and the deck goes to sleep**, as
+  auto sleep would: deep sleep on the JC4827W543 and JC3248W535, the screen off on the JC1060P470C
+  and the ESP32-4848S040. After a moment a ring fills in the middle over the dimmed picture; lifting
+  the finger (or sliding it away) cancels, and a short tap still closes the screensaver or opens a
+  card. Shared by every deck (`core/ui/hold_sleep`).
+- JC1060P470C, ESP32-4848S040: a screen turned off while a finger is on the glass wakes on the next
+  touch, not on that same finger.
+- **JC3248W535: a full battery no longer reads as USB.** On USB with the cell full the charger stops
+  and the battery node rises to ~4.9 V; the ADC reads a little high, so a freshly charged cell
+  stayed above the old 4.55 / 4.70 V thresholds once unplugged. USB is now 4.85 V and up (back to
+  battery under 4.78 V).
+- *Settings › About › Battery* shows the measured voltage on USB too (`USB · charging · 4.90 V`);
+  USB console `batlog`: the battery readings of the last ~10 minutes, every 5 s.
+
 ## firmware 1.4.0 — Battery level on the screensaver
 
 - **Screensaver: the deck's battery, discreetly, in the top right corner** — a small drawn battery

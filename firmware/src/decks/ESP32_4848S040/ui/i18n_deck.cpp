@@ -6,7 +6,7 @@ namespace ui {
 const char *deck_tr(Str id, bool en) {
   switch (id) {
     case Str::SsHint:  // no BOOT button on this board (GPIO0 is a pixel line)
-      return en ? "While it is on it replaces auto sleep: the screen never turns off. Touch the screen to leave it." : "Mientras está activado sustituye al reposo automático: la pantalla no se apaga. Toca la pantalla para salir.";
+      return en ? "While it is on it replaces auto sleep: the screen never turns off. Touch the screen to leave it; hold a finger on it for 2 s to sleep." : "Mientras está activado sustituye al reposo automático: la pantalla no se apaga. Toca la pantalla para salir; mantén el dedo 2 s para el reposo.";
     case Str::TabsHint:
       return en ? "The eye shows or hides a tab. The first visible one opens at start-up." : "El ojo muestra u oculta la pestaña. La primera visible se abre al encender.";
     default:

@@ -290,6 +290,14 @@ void handle(char *line) {
     } else {
       out("ERR usage: place <lat> <lon> <name> | place off");
     }
+  } else if (!strcmp(cmd, "batlog")) {
+    // Deck battery readings of the last ~10 minutes (one every 5 s), oldest first.
+    static battery::LogEntry e[120];
+    const int n = battery::log_entries(e, 120);
+    for (int i = 0; i < n; i++)
+      con::printf("t=%5us node=%umV raw=%umV src=%s host=%d\n", static_cast<unsigned>(e[i].t_s), e[i].node_mv, e[i].raw_mv,
+                  battery::source_name(static_cast<battery::Source>(e[i].source)), e[i].usb_host);
+    if (!n) out("no readings (this deck has no battery-sense line)");
   } else if (!strcmp(cmd, "city")) {
     // city add <lat> <lon> <name...> | city del <n> | city main <n> | city show <n>   (n as listed by "weather")
     float lat = 0, lon = 0;

@@ -25,11 +25,20 @@ constexpr uint16_t kMinCellMv = 2900;  // below: nothing measurable
 // timer-based check) OR the node is above any cell voltage (~4.9 V: USB without a battery).
 // Hysteresis + a few consecutive samples avoid flicker. A charge-only wall adapter (no data) with a
 // battery attached is indistinguishable from battery power on this board.
-constexpr uint16_t kUsbEnterMv = 4700;
-constexpr uint16_t kUsbExitMv = 4550;
+// The divider + ADC read a few % high (a JC3248W535 read 4.47 V on USB for a cell charging at 4.2 V),
+// so a freshly charged cell read 4.55..4.7 V: with the old 4.70 / 4.55 V thresholds a deck unplugged
+// with a full battery kept saying "USB" until the cell ran down. Only a supply clearly above any cell
+// (USB without a battery, ~4.9 V) counts now.
+constexpr uint16_t kUsbEnterMv = 4850;
+constexpr uint16_t kUsbExitMv = 4780;
 constexpr int kConfirmSamples = 3;  // seconds a new source must persist before it is shown
 
 float s_filtered = 0;
+constexpr int kLogN = 120;
+constexpr uint32_t kLogEveryMs = 5000;
+LogEntry s_log[kLogN];
+int s_log_n = 0, s_log_head = 0;
+uint32_t s_log_at = 0;
 Source s_candidate = Source::Unknown;
 int s_candidate_n = 0;
 
@@ -80,7 +89,8 @@ void poll(uint32_t now_ms) {
   st.mv = static_cast<uint16_t>(s_filtered);
   const bool was_usb = s_state.source == Source::Usb;
   Source raw = Source::Unknown;
-  if (usb_serial_jtag_is_connected() || st.mv >= (was_usb ? kUsbExitMv : kUsbEnterMv)) raw = Source::Usb;
+  const bool host = usb_serial_jtag_is_connected();
+  if (host || st.mv >= (was_usb ? kUsbExitMv : kUsbEnterMv)) raw = Source::Usb;
   else if (st.mv >= kMinCellMv) raw = Source::Battery;
   // Debounce source changes (the first reading after boot is taken as is).
   if (s_state.source == Source::Unknown || raw == s_state.source) {
@@ -103,6 +113,29 @@ void poll(uint32_t now_ms) {
                                      : p);
   }
   s_state = st;
+  if (!s_log_at || now_ms - s_log_at >= kLogEveryMs) {
+    s_log_at = now_ms | 1;
+    LogEntry &e = s_log[s_log_head];
+    e.t_s = now_ms / 1000;
+    e.node_mv = st.mv;
+    e.raw_mv = static_cast<uint16_t>(node);
+    e.source = static_cast<uint8_t>(st.source);
+    e.usb_host = host;
+    s_log_head = (s_log_head + 1) % kLogN;
+    if (s_log_n < kLogN) s_log_n++;
+  }
+#endif
+}
+
+int log_entries(LogEntry *out, int max) {
+#if PCD_PIN_BAT_ADC >= 0
+  const int n = s_log_n < max ? s_log_n : max;
+  for (int i = 0; i < n; i++) out[i] = s_log[(s_log_head - s_log_n + (s_log_n - n) + i + 2 * kLogN) % kLogN];
+  return n;
+#else
+  (void)out;
+  (void)max;
+  return 0;
 #endif
 }
 

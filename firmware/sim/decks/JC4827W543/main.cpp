@@ -589,6 +589,23 @@ int main(int argc, char **argv) {
     ui::battery_badge_dev(-1);
     ss.battery = was;
   }
+  // Hold to sleep: a finger held on the screensaver fills the ring (it sleeps at 2 s, not reached
+  // here); lifting it before cancels and closes the screensaver as a tap would.
+  ui::screensaver::start();
+  run(1600);
+  g_pt.x = static_cast<lv_coord_t>(lv_disp_get_hor_res(nullptr) / 2);
+  g_pt.y = static_cast<lv_coord_t>(lv_disp_get_ver_res(nullptr) / 4);
+  g_pressed = true;
+  run(1300);
+  shot("27_ss_hold");
+  g_pressed = false;
+  run(300);
+  printf("27_ss_hold: screensaver %s after release\n", ui::screensaver::active() ? "on" : "off");
+  if (ui::screensaver::active()) {
+    printf("FAIL 27_ss_hold: a short hold must close the screensaver\n");
+    ui::screensaver::stop();
+  }
+  run(100);
   // Tapping a card opens its page; a tap elsewhere just closes the screensaver.
   {
     struct {
