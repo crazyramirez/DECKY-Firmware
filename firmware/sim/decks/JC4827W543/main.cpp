@@ -14,6 +14,7 @@
 #include "crypto/crypto_store.h"
 #include "network/net_task.h"
 #include "storage/net_store.h"
+#include "ui/battery_badge.h"
 #include "ui/cities_ui.h"
 #include "ui/i18n.h"
 #include "ui/screen_cover.h"
@@ -566,6 +567,28 @@ int main(int argc, char **argv) {
     run(100);
   }
   app::state().settings.clock_12h = false;
+  // Deck battery in the corner (as if on battery; the real decks show it only then): icon and %,
+  // icon only, and a nearly empty battery.
+  {
+    auto &ss = app::state().settings.ss;
+    const uint8_t was = ss.battery;
+    const struct {
+      int pct;
+      uint8_t mode;
+      const char *name;
+    } kBat[] = {{78, 2, "27_ss_battery"}, {64, 1, "27_ss_battery_icon"}, {8, 2, "27_ss_battery_low"}};
+    for (const auto &b : kBat) {
+      ss.battery = b.mode;
+      ui::battery_badge_dev(b.pct);
+      ui::screensaver::start();
+      run(1600);
+      shot(b.name);
+      ui::screensaver::stop();
+      run(100);
+    }
+    ui::battery_badge_dev(-1);
+    ss.battery = was;
+  }
   // Tapping a card opens its page; a tap elsewhere just closes the screensaver.
   {
     struct {

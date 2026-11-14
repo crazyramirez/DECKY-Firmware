@@ -25,6 +25,7 @@
 #include "esp_random.h"
 #include "ui/crypto_fmt.h"
 #include "ui/ui.h"
+#include "ui/battery_badge.h"
 #include "ui/ui_internal.h"
 #include "ui/wallpaper.h"
 
@@ -59,6 +60,7 @@ struct Card {
 };
 
 lv_obj_t *s_root = nullptr;
+BatteryBadge s_bat;  // deck battery, top right
 lv_obj_t *s_img[2] = {};
 wallpaper::Image s_wp[2];
 int s_front = 0;         // which s_img is the visible one
@@ -447,6 +449,13 @@ void build() {
   s_hint = make_label(s_root, font_small(), kText, tr(Str::SsTapToClose));
   lv_obj_set_style_text_opa(s_hint, LV_OPA_70, 0);
   lv_obj_align(s_hint, LV_ALIGN_TOP_RIGHT, -20, 14);
+  // Deck battery, top right (only on battery, as Settings > Screensaver > Battery says).
+  battery_badge_create(s_bat, s_root, font_small(), 34, 17);
+  lv_obj_align(s_bat.root, LV_ALIGN_TOP_RIGHT, -20, 14);
+  if (!lv_obj_has_flag(s_bat.root, LV_OBJ_FLAG_HIDDEN)) {  // the hint goes to its left
+    lv_obj_update_layout(s_root);
+    lv_obj_align_to(s_hint, s_bat.root, LV_ALIGN_OUT_LEFT_MID, -25, 0);
+  }
 }
 
 }  // namespace
@@ -494,12 +503,14 @@ void stop() {
   s_content = s_clock = s_hh = s_colon = s_mm = s_ampm = s_date = nullptr;
   s_wx = s_wx_icon = s_wx_temp = s_wx_text = s_cards = s_hint = nullptr;
   s_pc = s_media = s_coin = Card{};
+  s_bat = BatteryBadge{};
   backlight::set(app::screen_brightness());
   lv_disp_trig_activity(nullptr);  // closing counts as activity: the countdown starts again
 }
 
 void tick() {
   if (!s_root) return;
+  battery_badge_update(s_bat);
   const uint32_t now = lv_tick_get();
   s_colon_on = !s_colon_on;
   lv_obj_set_style_text_opa(s_colon, s_colon_on ? LV_OPA_COVER : LV_OPA_30, 0);

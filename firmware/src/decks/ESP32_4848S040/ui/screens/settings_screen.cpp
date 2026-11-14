@@ -89,6 +89,8 @@ const char *s_ss_show_map[] = {"", "", "\n", "", "", ""};  // i18n, "✓ " when 
 char s_ss_show_txt[4][32];
 const char *s_ss_dim_map[] = {"100 %", "60 %", "30 %", ""};
 constexpr uint8_t kSsDim[] = {100, 60, 30};
+const char *s_ss_bat_map[] = {"", "", "", ""};  // Off / Icon / Icon and % (i18n)
+lv_obj_t *s_ss_bat = nullptr;  // only on decks that sense a battery (battery::sensed())
 lv_obj_t *s_ss_switch = nullptr;
 lv_obj_t *s_ss_wait = nullptr;
 lv_obj_t *s_ss_mode = nullptr;
@@ -309,6 +311,10 @@ void ss_show_cb(lv_event_t *e) {
     if (lv_btnmatrix_has_btn_ctrl(m, i, LV_BTNMATRIX_CTRL_CHECKED)) mask |= static_cast<uint8_t>(1u << i);
   ss_show_labels(mask);
   ss_change([mask](storage::Screensaver &ss) { ss.show = mask; });
+}
+void ss_bat_cb(lv_event_t *e) {
+  const uint16_t sel = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
+  if (sel < 3) ss_change([sel](storage::Screensaver &ss) { ss.battery = static_cast<uint8_t>(sel); });
 }
 void ss_dim_cb(lv_event_t *e) {
   const uint16_t sel = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
@@ -605,6 +611,16 @@ lv_obj_t *create(lv_obj_t *parent) {
   lv_btnmatrix_set_btn_width(s_ss_dim, 0, 4);
   lv_btnmatrix_set_btn_width(s_ss_dim, 1, 3);
   lv_btnmatrix_set_btn_width(s_ss_dim, 2, 3);
+  s_ss_bat = nullptr;
+  if (battery::sensed()) {  // the deck's battery in the screensaver's corner (never on USB)
+    s_ss_bat_map[0] = tr(Str::SsBatOff);
+    s_ss_bat_map[1] = tr(Str::SsBatIcon);
+    s_ss_bat_map[2] = tr(Str::SsBatPct);
+    r = row(g, true, 56);
+    icon(r, LV_SYMBOL_BATTERY_3, kOk);
+    label(r, tr(Str::SsBattery));
+    s_ss_bat = segmented(r, s_ss_bat_map, ss.battery <= 2 ? ss.battery : 2, 250, ss_bat_cb);
+  }
   s_ss_preview = row(g, true);
   icon(s_ss_preview, LV_SYMBOL_PLAY, kOk);
   label(s_ss_preview, tr(Str::SsPreview));
@@ -710,6 +726,7 @@ void on_screensaver() {
   pick(s_ss_mode, ss.bg_mode <= 2 ? ss.bg_mode : 0);
   pick(s_ss_every, index_of(kSsEvery, 4, ss.cycle_min));
   pick(s_ss_dim, index_of(kSsDim, 3, ss.dim));
+  if (s_ss_bat) pick(s_ss_bat, ss.battery <= 2 ? ss.battery : 2);
   for (uint16_t i = 0; i < 4; i++) {
     const bool on = ss.show & (1u << i);
     if (on != lv_btnmatrix_has_btn_ctrl(s_ss_show, i, LV_BTNMATRIX_CTRL_CHECKED)) {
@@ -721,6 +738,7 @@ void on_screensaver() {
   }
   ss_show_labels(ss.show);  // the check marks follow the stored choice
   for (lv_obj_t *m : {s_ss_wait, s_ss_mode, s_ss_show, s_ss_dim}) set_ss_row_enabled(m, ss.enabled);
+  if (s_ss_bat) set_ss_row_enabled(s_ss_bat, ss.enabled);
   set_ss_row_enabled(s_ss_every, ss.enabled && ss.bg_mode == static_cast<uint8_t>(storage::SsBg::Cycle));
   set_enabled(s_ss_img_row, ss.enabled);  // nav row: dimmed by its own DISABLED style
   set_text(s_ss_img_val, ui::wallpaper::name(ss.bg));

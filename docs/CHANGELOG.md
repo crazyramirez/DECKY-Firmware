@@ -6,6 +6,16 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.4.0 — Battery level on the screensaver
+
+- **Screensaver: the deck's battery, discreetly, in the top right corner** — a small drawn battery
+  whose fill follows the charge (amber at 20 % and under, red at 10 %), with the percentage before
+  it if you want. Only while the deck runs on its battery: on USB it never shows.
+- **Settings › Screensaver › Battery:** *Off · Icon · Icon and %* (default: icon and %).
+- Shared by every deck (`core/ui/battery_badge`); the setting appears only on decks that can sense
+  a battery (today the JC3248W535, `battery::sensed()`). On the 7" and 4.3" decks the "Touch to
+  return" hint moves to the badge's left while it shows.
+
 ## firmware 1.3.0 — More cities on Today
 
 - **Every deck: Today can hold up to 6 cities.** Swipe sideways on Today and the whole page is the

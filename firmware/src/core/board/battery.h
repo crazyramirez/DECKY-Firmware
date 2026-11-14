@@ -6,6 +6,8 @@
 //  - battery: the node follows the cell voltage (3.0..4.2 V): percentage from a LiPo curve.
 #include <stdint.h>
 
+#include "board_pins.h"
+
 namespace battery {
 
 enum class Source : uint8_t { Unknown, Usb, Battery };
@@ -16,6 +18,10 @@ struct State {
   int8_t pct = -1;      // 0..100 on battery, -1 otherwise
   uint16_t pin_mv = 0;  // raw ADC pin voltage (diagnostics / calibration)
 };
+
+// This deck can tell battery from USB power (a battery-sense line): only then is there a battery
+// level to show anywhere (top bar, screensaver, its setting).
+constexpr bool sensed() { return PCD_PIN_BAT_ADC >= 0; }
 
 void init();
 void poll(uint32_t now_ms);  // UI task, cheap; samples every second

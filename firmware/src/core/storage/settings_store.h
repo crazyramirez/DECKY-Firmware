@@ -29,6 +29,7 @@ struct Screensaver {
   uint8_t cycle_min = 5;    // wallpaper change period in cycle mode: 1, 5, 15, 30
   uint8_t show = kSsWeather | kSsPc | kSsMedia | kSsCrypto;
   uint8_t dim = 100;        // backlight while showing, % of the normal brightness: 100, 60, 30
+  uint8_t battery = 2;      // deck battery, top right, only while on battery: 0 off, 1 icon, 2 icon + %
 };
 
 // Today: the main place plus more cities (their weather and local time, one swipe away).

@@ -61,7 +61,7 @@ bool valid_crypto_refresh(uint8_t s) { return s == 15 || s == 30 || s == 60; }
 bool valid_screensaver(const Screensaver &ss) {
   const uint8_t w = ss.wait_min, c = ss.cycle_min, d = ss.dim;
   return (w == 1 || w == 2 || w == 5 || w == 10 || w == 30) && ss.bg_mode <= 2 &&
-         (c == 1 || c == 5 || c == 15 || c == 30) && ss.show <= 0x0F && (d == 100 || d == 60 || d == 30);
+         (c == 1 || c == 5 || c == 15 || c == 30) && ss.show <= 0x0F && (d == 100 || d == 60 || d == 30) && ss.battery <= 2;
 }
 
 bool valid_tab_order(const uint8_t order[kTabCount]) {
@@ -122,6 +122,7 @@ bool load(Settings &out) {
   ss.cycle_min = p.getUChar("ss_cycle", ss.cycle_min);
   ss.show = p.getUChar("ss_show", ss.show);
   ss.dim = p.getUChar("ss_dim", ss.dim);
+  ss.battery = p.getUChar("ss_bat", ss.battery);
   if (valid_screensaver(ss)) out.ss = ss;
   out.cpu_warn_c = p.getFloat("cpu_w", out.cpu_warn_c);
   out.cpu_crit_c = p.getFloat("cpu_c", out.cpu_crit_c);
@@ -174,6 +175,7 @@ bool save(const Settings &s) {
   p.putUChar("ss_cycle", s.ss.cycle_min);
   p.putUChar("ss_show", s.ss.show);
   p.putUChar("ss_dim", s.ss.dim);
+  p.putUChar("ss_bat", s.ss.battery);
   p.putFloat("cpu_w", s.cpu_warn_c);
   p.putFloat("cpu_c", s.cpu_crit_c);
   p.putFloat("gpu_w", s.gpu_warn_c);

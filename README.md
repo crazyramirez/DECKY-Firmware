@@ -10,7 +10,7 @@ repository holds the firmware of every supported deck; the PC side is
 **[DECKY Agent](https://github.com/crazyramirez/DECKY-Agent)**, a tray app for Windows, Linux and
 macOS. (DECKY was called *PC Control Deck* until firmware 1.0.)
 
-Current version: firmware **1.3.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
+Current version: firmware **1.4.0** ([CHANGELOG](docs/CHANGELOG.md)) · desktop app **DECKY Agent**
 ([releases](https://github.com/crazyramirez/DECKY-Agent/releases))
 
 ## Supported decks
@@ -58,7 +58,9 @@ The same features on every deck; each screen is laid out for its panel (see the 
   you want them the weather and glass cards with the PC, the song playing and your coins. Tap a
   card to open its page. While it is enabled it replaces auto sleep; the content drifts a few
   pixels every minute against burn-in. **Double-tap the status corner** (battery / LED, top right)
-  to start it at once.
+  to start it at once. On a deck running on its battery (JC3248W535), a small battery in the top
+  right corner shows the charge, with or without the percentage, or not at all (*Settings ›
+  Screensaver › Battery*); on USB it never shows.
 - **Settings** — Wi-Fi and pairing, the setup assistant, screen off and sleep, lock / restart /
   shut down the PC (restart and shut down only if allowed in DECKY Agent, always confirmed),
   brightness, language (Español / English), refresh rate, screensaver, place, °C / °F, 24 / 12 h,

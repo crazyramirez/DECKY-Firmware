@@ -86,6 +86,8 @@ const char *s_ss_show_map[] = {"", "", "", "", ""};   // Weather / PC / Music / 
 char s_ss_show_txt[4][32];
 const char *s_ss_dim_map[] = {"100 %", "60 %", "30 %", ""};
 constexpr uint8_t kSsDim[] = {100, 60, 30};
+const char *s_ss_bat_map[] = {"", "", "", ""};  // Off / Icon / Icon and % (i18n)
+lv_obj_t *s_ss_bat = nullptr;  // only on decks that sense a battery (battery::sensed())
 lv_obj_t *s_ss_switch = nullptr;
 lv_obj_t *s_ss_wait = nullptr;
 lv_obj_t *s_ss_mode = nullptr;
@@ -309,6 +311,10 @@ void ss_show_cb(lv_event_t *e) {
     if (lv_btnmatrix_has_btn_ctrl(m, i, LV_BTNMATRIX_CTRL_CHECKED)) mask |= static_cast<uint8_t>(1u << i);
   ss_show_labels(mask);
   ss_change([mask](storage::Screensaver &ss) { ss.show = mask; });
+}
+void ss_bat_cb(lv_event_t *e) {
+  const uint16_t sel = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
+  if (sel < 3) ss_change([sel](storage::Screensaver &ss) { ss.battery = static_cast<uint8_t>(sel); });
 }
 void ss_dim_cb(lv_event_t *e) {
   const uint16_t sel = lv_btnmatrix_get_selected_btn(lv_event_get_target(e));
@@ -587,6 +593,16 @@ lv_obj_t *create(lv_obj_t *parent) {
   icon(r, LV_SYMBOL_EYE_OPEN, kPower);
   label(r, tr(Str::SsDim));
   s_ss_dim = segmented(r, s_ss_dim_map, index_of(kSsDim, 3, ss.dim), 160, ss_dim_cb);
+  s_ss_bat = nullptr;
+  if (battery::sensed()) {  // the deck's battery in the screensaver's corner (never on USB)
+    s_ss_bat_map[0] = tr(Str::SsBatOff);
+    s_ss_bat_map[1] = tr(Str::SsBatIcon);
+    s_ss_bat_map[2] = tr(Str::SsBatPct);
+    r = row(g, true);
+    icon(r, LV_SYMBOL_BATTERY_3, kOk);
+    label(r, tr(Str::SsBattery));
+    s_ss_bat = segmented(r, s_ss_bat_map, ss.battery <= 2 ? ss.battery : 2, 230, ss_bat_cb);
+  }
   s_ss_preview = row(g, true);
   icon(s_ss_preview, LV_SYMBOL_PLAY, kOk);
   label(s_ss_preview, tr(Str::SsPreview));
@@ -680,6 +696,7 @@ void on_screensaver() {
       lv_obj_clear_state(s_ss_switch, LV_STATE_CHECKED);
   }
   for (lv_obj_t *m : {s_ss_wait, s_ss_mode, s_ss_show, s_ss_dim}) set_control_enabled(m, ss.enabled, true);
+  if (s_ss_bat) set_control_enabled(s_ss_bat, ss.enabled, true);
   set_control_enabled(s_ss_every, ss.enabled && ss.bg_mode == static_cast<uint8_t>(storage::SsBg::Cycle), true);
   set_enabled(s_ss_img_row, ss.enabled);
   set_text(s_ss_img_val, ui::wallpaper::name(ss.bg));

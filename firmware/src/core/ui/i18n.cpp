@@ -379,6 +379,10 @@ const Entry kTable[] = {
     {"Ayer", "Yesterday"},
     {"Misma hora", "Same time"},
     {"Ya tienes las 6 ciudades. Quita una para añadir otra.", "You already have 6 cities. Remove one to add another."},
+    {"Batería", "Battery"},
+    {"No", "Off"},
+    {"Icono", "Icon"},
+    {"Icono y %", "Icon and %"},
 };
 static_assert(sizeof(kTable) / sizeof(kTable[0]) == static_cast<size_t>(Str::Count),
               "i18n table out of sync with enum Str");

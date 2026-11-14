@@ -51,7 +51,7 @@ enum class Str : uint16_t {
   SsCycle, SsEvery, SsImage, SsShow, SsWeather, SsPc, SsMusic, SsCrypto, SsDim, SsPreview, SsHint,
   SsPickerTitle, SsPickerHint, SsReplacedBySaver, SsTapToClose, TodayBg, Cities, CityAdd,
   CityAddSubtitle, CitiesHintOne, CitiesHint, CitiesEditHint, CityMain, CityEdit, CityDone, CityTomorrow,
-  CityYesterday, CitySameTime, CityFull,
+  CityYesterday, CitySameTime, CityFull, SsBattery, SsBatOff, SsBatIcon, SsBatPct,
   Count
 };
 
