@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/header.webp" width="100%" alt="DECKY — Control Deck: your PC at a glance — monitoring, media, weather and crypto on a touch deck. Local, private, no cloud."></p>
+<p align="center"><img src="docs/og-image.jpg" width="100%" alt="DECKY — Control Deck: your PC at a glance — monitoring, media, weather and crypto on a touch deck. Local, private, no cloud."></p>
 
 # DECKY — Control Deck
 
