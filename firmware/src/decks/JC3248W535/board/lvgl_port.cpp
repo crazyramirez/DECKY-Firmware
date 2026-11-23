@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <lvgl.h>
 
+#include "board/wake_touch.h"
 #include "board_pins.h"
 #include "esp_heap_caps.h"
 #include "ui/screen_cover.h"
@@ -23,6 +24,8 @@ bool s_touch_ok = false;
 bool s_was_pressed = false;
 bool s_screen_off = false;
 bool s_swallow = false;  // finger that woke the screen is still down
+wake_touch::Filter s_wake;  // a dark screen wakes only for a real finger (not a glitch)
+const int kWakeTol = wake_touch::tolerance(PCD_LCD_H_RES, PCD_LCD_V_RES);
 void (*s_on_wake)() = nullptr;
 lv_point_t s_last_point = {0, 0};
 
@@ -42,7 +45,8 @@ void touch_read_cb(lv_indev_drv_t *, lv_indev_data_t *data) {
   touch::Point p;
   const bool down = s_touch_ok && touch::read(p) && p.pressed;
   if (s_screen_off || s_swallow) {
-    if (down && s_screen_off) {
+    // A new press (the finger that turned it off must lift first) held still for a moment.
+    if (s_screen_off && s_wake.feed(down, p.x, p.y, lv_tick_get(), kWakeTol)) {
       s_screen_off = false;
       s_swallow = true;
       lv_disp_trig_activity(nullptr);
@@ -114,6 +118,7 @@ const uint16_t *framebuffer() { return s_fb; }
 
 void set_screen_off(bool off) {
   s_screen_off = off;
+  if (off) s_wake.reset();
   if (!off) {
     lv_disp_trig_activity(nullptr);  // waking counts as activity (auto sleep)
     lv_obj_invalidate(lv_scr_act());  // push a fresh frame right away

@@ -14,6 +14,7 @@
 #include "app/deck_hooks.h"
 #include "board/console_io.h"
 #include "board/lvgl_port.h"
+#include "board/wake_touch.h"
 #include "board_pins.h"
 #include "deck_config.h"
 #include "crypto/crypto_store.h"
@@ -78,6 +79,28 @@ void cmd_status() {
                 static_cast<unsigned>(s.reconnects), static_cast<unsigned>(s.backoff_ms));
   const battery::State b = battery::state();
   con::printf("deck power %s node=%umV pct=%d (adc pin %u mV)\n", battery::source_name(b.source), b.mv, b.pct, b.pin_mv);
+  const wake_touch::Stats w = wake_touch::stats();
+#if PCD_HAS_DEEP_SLEEP
+  con::printf("touch wake: %u short touches ignored (screen off) | deep sleep: %u real, %u sent back to sleep, "
+              "this boot '%s' at %u ms\n",
+              static_cast<unsigned>(w.ignored), static_cast<unsigned>(w.boot_real), static_cast<unsigned>(w.boot_false),
+              wake_touch::name(w.last), static_cast<unsigned>(w.check_at_ms));
+  wake_touch::TrailItem tr[wake_touch::kTrailLen];
+  const int tn = wake_touch::trail(tr);
+  if (tn) {
+    con::printf("touch wakes, oldest first:");
+    for (int i = 0; i < tn; i++) {
+      if (tr[i].sleep_ms)
+        con::printf(" [%s @%u ms, asleep again @%u ms]", wake_touch::name(tr[i].result),
+                    static_cast<unsigned>(tr[i].check_ms), static_cast<unsigned>(tr[i].sleep_ms));
+      else
+        con::printf(" [%s @%u ms, stayed awake]", wake_touch::name(tr[i].result), static_cast<unsigned>(tr[i].check_ms));
+    }
+    con::printf("\n");
+  }
+#else
+  con::printf("touch wake: %u short touches ignored (screen off)\n", static_cast<unsigned>(w.ignored));
+#endif
   deck::console_status();
   if (st.agent_note_count)
     con::printf("agent notes (%u): %s\n", st.agent_note_count, st.agent_first_note);

@@ -6,6 +6,21 @@ of them. Up to 1.0 each deck had its own repository and versions: their history 
 [JC4827W543](decks/JC4827W543/changelog-0.x.md) (up to 0.13.0) and
 [JC3248W535](decks/JC3248W535/changelog-0.x.md) (up to 0.14.0).
 
+## firmware 1.6.0 — No more waking on a false touch
+
+- **Every deck: only a real finger turns a dark screen back on.** A stray report of the touch
+  controller (noise from a charger, ESD, a brush of the hand) is a frame or two; the press now has to
+  stay ~60 ms on about the same spot, and it must start after the screen went dark. A normal tap
+  still wakes it. Shared by every deck (`core/board/wake_touch`).
+- **JC3248W535, JC4827W543: a glitch on the touch line no longer wakes the deck from deep sleep.**
+  The touch INT line restarts the chip; before the backlight or Wi-Fi come up the deck now checks
+  that a finger is on the glass and, if not, goes straight back to sleep (the screen never lights
+  up). A tap too quick to still be there after the restart: tap again within 4 s and it wakes. The
+  BOOT button and the 543's sleep button wake it as before.
+- USB console `status`: `touch wake: … short touches ignored | deep sleep: … real, … sent back to
+  sleep`, and on the deep-sleep decks the last 8 touch wakes (kept through deep sleep): what the
+  check found and when it went back to sleep.
+
 ## firmware 1.5.0 — Hold the screensaver to sleep
 
 - **Every deck: hold a finger anywhere on the screensaver for 2 s and the deck goes to sleep**, as

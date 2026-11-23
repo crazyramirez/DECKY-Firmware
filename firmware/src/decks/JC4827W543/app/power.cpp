@@ -8,6 +8,8 @@
 #include "board/backlight.h"
 #include "board/lcd_nv3041a.h"
 #include "board/lvgl_port.h"
+#include "board/touch_gt911.h"
+#include "board/wake_touch.h"
 #include "board_pins.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
@@ -30,6 +32,9 @@ constexpr uint32_t kRelearnMs = 10000;    // "active" for this long: the learnt 
 
 // Survives deep sleep: idle level learnt at cold boot (a woken deck may still feel the finger).
 RTC_DATA_ATTR int8_t r_idle[2] = {-1, -1};
+// Idle level of the touch INT / BOOT lines and the ext0 line chosen at the last deep sleep: a false
+// touch wake goes back to sleep with the same wake sources.
+RTC_DATA_ATTR int8_t r_int_idle = -1, r_boot_idle = -1, r_ext0_pin = -1;
 
 bool s_woke = false;
 const char *s_wake = "";
@@ -77,6 +82,80 @@ int idle_level(gpio_num_t pin, uint32_t quiet_ms, uint32_t max_ms) {
     delay(2);
   }
   return last;
+}
+
+bool finger_down() {
+  touch::Point p;
+  return touch::read(p) && p.pressed;
+}
+
+// Wake lines armed from their idle levels, then deep sleep. The backlight pin must already be held low.
+[[noreturn]] void arm_and_sleep(int int_idle, int boot_idle) {
+  r_int_idle = static_cast<int8_t>(int_idle);
+  r_boot_idle = static_cast<int8_t>(boot_idle);
+  gpio_deep_sleep_hold_en();
+  // Wake lines in priority order; ext1 takes every line of the sleep button's active level, ext0 the
+  // first line of the other level (ext1 has a single trigger level on the ESP32-S3).
+  struct Line {
+    gpio_num_t pin;
+    int idle;
+  };
+  const Line lines[] = {{kBtn[0], s_btn[0].idle}, {kBtn[1], s_btn[1].idle}, {kTouchInt, int_idle}, {kBootBtn, boot_idle}};
+  const int ext1_active = s_btn[0].idle ? 0 : 1;  // the button's active level
+  uint64_t ext1_mask = 0;
+  int ext0_pin = -1, ext0_level = 0;
+  for (const Line &l : lines) {
+    const int active = l.idle ? 0 : 1;
+    rtc_gpio_init(l.pin);
+    rtc_gpio_set_direction(l.pin, RTC_GPIO_MODE_INPUT_ONLY);
+    if (active) {
+      rtc_gpio_pulldown_en(l.pin);
+      rtc_gpio_pullup_dis(l.pin);
+    } else {
+      rtc_gpio_pullup_en(l.pin);
+      rtc_gpio_pulldown_dis(l.pin);
+    }
+    if (active == ext1_active) {
+      ext1_mask |= 1ULL << l.pin;
+    } else if (ext0_pin < 0) {
+      ext0_pin = l.pin;
+      ext0_level = active;
+    }
+  }
+  r_ext0_pin = static_cast<int8_t>(ext0_pin);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);  // keep the pulls alive
+  esp_sleep_enable_ext1_wakeup(ext1_mask, ext1_active ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ANY_LOW);
+  if (ext0_pin >= 0) esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(ext0_pin), ext0_level);
+  ESP_LOGI(TAG, "wake: ext1 mask 0x%llx on %s, ext0 GPIO%d on %s (INT idle %d, BOOT idle %d)", ext1_mask,
+           ext1_active ? "high" : "low", ext0_pin, ext0_level ? "high" : "low", int_idle, boot_idle);
+  Serial.flush();
+  delay(50);
+  esp_deep_sleep_start();
+}
+
+// Woken by the touch INT line: was it a finger? Runs before anything else is up (Wi-Fi off, panel in
+// SLPIN, backlight still held low), so a glitch goes back to sleep without lighting the screen.
+// Returns only when the deck stays awake.
+void check_touch_wake() {
+  touch::init();  // GT911 reset (~130 ms); lvgl_port reuses it
+  if (wake_touch::boot_check(finger_down, 200) != wake_touch::Boot::kFalse) return;
+  // INT back at its idle level for a moment (reading the GT911 hands its buffer back); a finger
+  // meanwhile is the second tap: stay awake.
+  const uint32_t t0 = millis();
+  uint32_t quiet_since = millis();
+  int run = 0;
+  while (millis() - t0 < 1000) {
+    run = finger_down() ? run + 1 : 0;
+    if (run >= 2) {
+      ESP_LOGI(TAG, "touch wake: finger while going back to sleep, staying awake");
+      return;
+    }
+    if (gpio_get_level(kTouchInt) != r_int_idle) quiet_since = millis();
+    else if (millis() - quiet_since >= 300) break;
+    delay(10);
+  }
+  wake_touch::going_back_to_sleep();
+  arm_and_sleep(r_int_idle, r_boot_idle);
 }
 
 void button_tap() {
@@ -133,8 +212,8 @@ void init() {
     else if (mask & (1ULL << kBootBtn)) s_wake = "boot";
     ESP_LOGI(TAG, "woke from deep sleep (%s, ext1 mask 0x%llx)", s_wake, mask);
   }
-  // Pins configured for deep sleep stay in RTC mode / held until released explicitly.
-  gpio_hold_dis(kBacklight);
+  // Pins configured for deep sleep stay in RTC mode / held until released explicitly. The backlight
+  // stays held low until the wake is known to be a real one.
   gpio_deep_sleep_hold_dis();
   for (gpio_num_t p : {kTouchInt, kBootBtn, kBtn[0], kBtn[1]}) rtc_gpio_deinit(p);
   pinMode(PCD_PIN_TOUCH_INT, INPUT_PULLUP);
@@ -151,6 +230,11 @@ void init() {
     b.armed = false;  // only after kArmIdleMs at the idle level (the finger that woke us must lift)
     ESP_LOGI(TAG, "sleep button GPIO%d idle=%d", kBtn[i], b.idle);
   }
+  if (!strcmp(s_wake, "touch") || (cause == ESP_SLEEP_WAKEUP_EXT0 && r_ext0_pin == kTouchInt)) {
+    s_wake = "touch";
+    if (r_int_idle == 0 || r_int_idle == 1) check_touch_wake();
+  }
+  gpio_hold_dis(kBacklight);
   lvgl_port::set_wake_callback(on_touch_wake);
 }
 
@@ -223,44 +307,7 @@ void deep_sleep() {
   pinMode(PCD_PIN_LCD_BL, OUTPUT);
   digitalWrite(PCD_PIN_LCD_BL, LOW);
   gpio_hold_en(kBacklight);
-  gpio_deep_sleep_hold_en();
-
-  // Wake lines in priority order; ext1 takes every line of the sleep button's active level, ext0 the
-  // first line of the other level (ext1 has a single trigger level on the ESP32-S3).
-  struct Line {
-    gpio_num_t pin;
-    int idle;
-  };
-  const Line lines[] = {{kBtn[0], s_btn[0].idle}, {kBtn[1], s_btn[1].idle}, {kTouchInt, int_idle}, {kBootBtn, boot_idle}};
-  const int ext1_active = s_btn[0].idle ? 0 : 1;  // the button's active level
-  uint64_t ext1_mask = 0;
-  int ext0_pin = -1, ext0_level = 0;
-  for (const Line &l : lines) {
-    const int active = l.idle ? 0 : 1;
-    rtc_gpio_init(l.pin);
-    rtc_gpio_set_direction(l.pin, RTC_GPIO_MODE_INPUT_ONLY);
-    if (active) {
-      rtc_gpio_pulldown_en(l.pin);
-      rtc_gpio_pullup_dis(l.pin);
-    } else {
-      rtc_gpio_pullup_en(l.pin);
-      rtc_gpio_pulldown_dis(l.pin);
-    }
-    if (active == ext1_active) {
-      ext1_mask |= 1ULL << l.pin;
-    } else if (ext0_pin < 0) {
-      ext0_pin = l.pin;
-      ext0_level = active;
-    }
-  }
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);  // keep the pulls alive
-  esp_sleep_enable_ext1_wakeup(ext1_mask, ext1_active ? ESP_EXT1_WAKEUP_ANY_HIGH : ESP_EXT1_WAKEUP_ANY_LOW);
-  if (ext0_pin >= 0) esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(ext0_pin), ext0_level);
-  ESP_LOGI(TAG, "wake: ext1 mask 0x%llx on %s, ext0 GPIO%d on %s (INT idle %d, BOOT idle %d)", ext1_mask,
-           ext1_active ? "high" : "low", ext0_pin, ext0_level ? "high" : "low", int_idle, boot_idle);
-  Serial.flush();
-  delay(50);
-  esp_deep_sleep_start();
+  arm_and_sleep(int_idle, boot_idle);
 }
 
 }  // namespace power

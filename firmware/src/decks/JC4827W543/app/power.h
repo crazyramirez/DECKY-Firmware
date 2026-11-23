@@ -5,6 +5,9 @@
 //  - deep sleep: Wi-Fi off, panel SLPIN, ESP32-S3 deep sleep; waking is a full restart (~3 s).
 //    Wake sources are chosen at sleep time from the idle level of each line: the sleep button on
 //    IO17/IO18 (header), the GT911 INT line (GPIO3, a touch) and the BOOT button (GPIO0).
+//    A touch wake is checked first (wake_touch::boot_check): no finger on the glass → straight back
+//    to sleep with the same wake sources, backlight never on; the same quick tap repeated within 4 s
+//    wakes it. Screen off: only a real press wakes it (wake_touch::Filter: held still ~60 ms).
 //  - sleep button (IO17/IO18, e.g. a TTP223 touch-button module): a tap runs the action chosen in
 //    Settings (deep sleep, or screen off/on); a tap while asleep wakes the deck.
 //  - screensaver (ui::screensaver): while it is enabled it replaces auto deep sleep. BOOT closes it;

@@ -73,6 +73,7 @@ void hw_reset() {
 }  // namespace
 
 bool init() {
+  if (s_addr) return true;  // already up (a deck may check a touch wake before the display starts)
   hw_reset();
   if (!Wire.begin(PCD_PIN_TOUCH_SDA, PCD_PIN_TOUCH_SCL, PCD_TOUCH_I2C_HZ)) {
     ESP_LOGE(TAG, "Wire.begin(SDA=%d, SCL=%d) failed", PCD_PIN_TOUCH_SDA, PCD_PIN_TOUCH_SCL);

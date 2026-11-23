@@ -6,6 +6,9 @@
 //    screensaver is enabled (it replaces auto sleep). BOOT, screen off and deep sleep close it.
 //  - deep sleep: Wi-Fi off, backlight held off, ESP32-S3 deep sleep. Wakes on the touch controller's
 //    INT line (GPIO3, active low) or the BOOT button (GPIO0); waking is a full restart (~3 s).
+//    A touch wake is checked first (wake_touch::boot_check): no finger on the glass → straight back
+//    to sleep, backlight never on; the same quick tap repeated within 4 s wakes it.
+//  - screen off: only a real press wakes it (wake_touch::Filter: held still ~60 ms).
 //    The panel is NOT put in SLPIN (PCD_DEEP_SLEEP_PANEL_SLPIN=1 restores it): the AXS15231B's touch
 //    core shares the chip and only scans slowly in SLPIN, so waking took several taps.
 #include <stdint.h>

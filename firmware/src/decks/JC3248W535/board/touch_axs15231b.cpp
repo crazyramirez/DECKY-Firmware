@@ -16,6 +16,7 @@ constexpr uint8_t kEventLiftUp = 1;
 
 uint8_t s_raw[kReplyLen] = {};
 Stats s_stats;
+bool s_ok = false;
 
 bool probe(uint8_t addr) {
   Wire.beginTransmission(addr);
@@ -25,15 +26,16 @@ bool probe(uint8_t addr) {
 }  // namespace
 
 bool init() {
+  if (s_ok) return true;  // already up (power checks a touch wake before the display starts)
   if (!Wire.begin(PCD_PIN_TOUCH_SDA, PCD_PIN_TOUCH_SCL, PCD_TOUCH_I2C_HZ)) {
     ESP_LOGE(TAG, "Wire.begin(SDA=%d, SCL=%d) failed", PCD_PIN_TOUCH_SDA, PCD_PIN_TOUCH_SCL);
     return false;
   }
   Wire.setTimeOut(20);
-  const bool ok = probe(PCD_TOUCH_I2C_ADDR);
-  ESP_LOGI(TAG, "controller 0x%02X %s (SDA=%d SCL=%d %d kHz)", PCD_TOUCH_I2C_ADDR, ok ? "ACK" : "NO ACK",
+  s_ok = probe(PCD_TOUCH_I2C_ADDR);
+  ESP_LOGI(TAG, "controller 0x%02X %s (SDA=%d SCL=%d %d kHz)", PCD_TOUCH_I2C_ADDR, s_ok ? "ACK" : "NO ACK",
            PCD_PIN_TOUCH_SDA, PCD_PIN_TOUCH_SCL, PCD_TOUCH_I2C_HZ / 1000);
-  return ok;
+  return s_ok;
 }
 
 int scan_bus(uint8_t *found, int max_found) {
